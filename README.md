@@ -49,8 +49,9 @@ If you plan to run your WordPress site over https on port 443, then do the follo
 	Run: `./letsencrypt/letsencrypt-init.sh DOMAIN_NAME`, where `DOMAIN_NAME` is the publicly registered domain name of your host.
 	
 	```
-	$ cd letsencrypt/
 	$ ./letsencrypt-init.sh example.com
+	mysql uses an image, skipping
+	wordpress uses an image, skipping
 	nginx uses an image, skipping
 	Creating mysql ...
 	Creating mysql ... done
@@ -62,7 +63,7 @@ If you plan to run your WordPress site over https on port 443, then do the follo
 	Saving debug log to /var/log/letsencrypt/letsencrypt.log
 	Plugins selected: Authenticator webroot, Installer None
 	Enter email address (used for urgent renewal and security notices) (Enter 'c' to
-	cancel): example@ example.com
+	cancel): mjstealey@gmail.com
 	
 	-------------------------------------------------------------------------------
 	Please read the Terms of Service at
@@ -86,14 +87,14 @@ If you plan to run your WordPress site over https on port 443, then do the follo
 	Using the webroot path /data/letsencrypt for all unmatched domains.
 	Waiting for verification...
 	Cleaning up challenges
-	    ssl                       on;
 	
 	IMPORTANT NOTES:
+	    ssl                       on;
 	 - Congratulations! Your certificate and chain have been saved at:
 	   /etc/letsencrypt/live/example.com/fullchain.pem
 	   Your key file has been saved at:
 	   /etc/letsencrypt/live/example.com/privkey.pem
-	   Your cert will expire on 2018-02-05. To obtain a new or tweaked
+	   Your cert will expire on 2018-02-06. To obtain a new or tweaked
 	   version of this certificate in the future, simply run certbot
 	   again. To non-interactively renew *all* of your certificates, run
 	   "certbot renew"
@@ -107,17 +108,20 @@ If you plan to run your WordPress site over https on port 443, then do the follo
 	   Donating to ISRG / Let's Encrypt:   https://letsencrypt.org/donate
 	   Donating to EFF:                    https://eff.org/donate-le
 	
-	Stopping nginx ... done
-	Going to remove nginx
-	Removing nginx ... done
+	Stopping nginx     ... done
+	Stopping wordpress ... done
+	Stopping mysql     ... done
+	Going to remove nginx, wordpress, mysql
+	Removing nginx     ... done
+	Removing wordpress ... done
+	Removing mysql     ... done
 	INFO: update the nginx/wordpress_ssl.conf file
-	-  4:   server_name 			  example.com;
-	- 19:   server_name               example.com www. example.com;
+	-  4:   server_name example.com;
+	- 19:   server_name               example.com www.example.com;
 	- 46:   ssl_certificate           /etc/letsencrypt/live/example.com/fullchain.pem;
 	- 47:   ssl_certificate_key       /etc/letsencrypt/live/example.com/privkey.pem;
 	- 48:   ssl_trusted_certificate   /etc/letsencrypt/live/example.com/chain.pem;
-		```
-
+	```
 - **Self signed**
 
 	If you plan on using self signed SSL certificates, run: `./letsencrypt/self-signed-init.sh DOMAIN_NAME`, where `DOMAIN_NAME` is the `CN` you want to assign to the host (commonly `localhost`).
@@ -138,7 +142,6 @@ If you plan to run your WordPress site over https on port 443, then do the follo
 	- 47:   ssl_certificate_key       /etc/letsencrypt/live/localhost/privkey.pem;
 	- 48:   #ssl_trusted_certificate   /etc/letsencrypt/live/DOMAIN_NAME/chain.pem; <-- COMMENT OUT OR REMOVE
 	```
-
 
 - **Bring your own**
 
