@@ -1,4 +1,4 @@
-version: '3.1'
+version: '3.6'
 services:
   nginx:
     image: nginx:latest
@@ -12,8 +12,6 @@ services:
       - ./wordpress:/var/www/html
       - ./certs:/etc/letsencrypt
       - ./certs-data:/data/letsencrypt
-    networks:
-      - wp_network
     links:
       - wordpress
     restart: always
@@ -23,19 +21,15 @@ services:
     container_name: mysql
     volumes:
       - ./mysql:/var/lib/mysql
-    networks:
-      - wp_network
     environment:
       - MYSQL_ROOT_PASSWORD=password
     restart: always
 
   wordpress:
-    image: wordpress:php7.1-fpm
+    image: wordpress:php7.2-fpm
     container_name: wordpress
     volumes:
       - ./wordpress:/var/www/html
-    networks:
-      - wp_network
     environment:
       - WORDPRESS_DB_NAME=wordpress
       - WORDPRESS_TABLE_PREFIX=wp_
@@ -44,6 +38,3 @@ services:
     links:
       - mysql
     restart: always
-
-networks:
-  wp_network:
