@@ -44,9 +44,9 @@ If you plan to run your WordPress site over https on port 443, then do the follo
 
 - **Let's Encrypt**
 
-	If you plan on using SSL certificates from [Let's Encrypt](https://letsencrypt.org) it is important that your public domain is already registered and reachable.
+    If you plan on using SSL certificates from [Let's Encrypt](https://letsencrypt.org) it is important that your public domain is already DNS registered and publically reachable.
 	
-	Run: `./letsencrypt/letsencrypt-init.sh DOMAIN_NAME`, where `DOMAIN_NAME` is the publicly registered domain name of your host.
+    Run: `./letsencrypt/letsencrypt-init.sh DOMAIN_NAME`, where `DOMAIN_NAME` is the publicly registered domain name of your host to generate your initial certificate. (Information about updating your Let's Encrypt certificate can be found further down in this document)
 
 ```console
 $ ./letsencrypt-init.sh example.com
@@ -122,7 +122,6 @@ INFO: update the nginx/wordpress_ssl.conf file
 - 47:   ssl_certificate_key       /etc/letsencrypt/live/example.com/privkey.pem;
 - 48:   ssl_trusted_certificate   /etc/letsencrypt/live/example.com/chain.pem;
 ```
-	Information about updating your Let's Encrypt certificate can be found further down in this document.
 	
 - **Self signed**
 
