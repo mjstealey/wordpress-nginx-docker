@@ -224,7 +224,7 @@ mkdir -p certs/ certs-data/ logs/nginx/ mysql/ wordpress/
 cp nginx/wordpress.conf.example nginx/wordpress.conf
 ```
 
-Update `nginx/wordpress.conf` by changing `DOMAIN_NAME` to `127.0.0.1`.
+Update `nginx/wordpress.conf` by changing the `server_name` value from `DOMAIN_NAME` to `127.0.0.1`.
 
 ```console
 $ diff nginx/wordpress.conf.example nginx/wordpress.conf
