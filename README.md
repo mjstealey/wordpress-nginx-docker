@@ -122,6 +122,8 @@ If you plan to run your WordPress site over https on port 443, then do the follo
 	- 47:   ssl_certificate_key       /etc/letsencrypt/live/example.com/privkey.pem;
 	- 48:   ssl_trusted_certificate   /etc/letsencrypt/live/example.com/chain.pem;
 	```
+	Information about updating your Let's Encrypt certificate can be found further down in this document.
+	
 - **Self signed**
 
 	If you plan on using self signed SSL certificates, run: `./letsencrypt/self-signed-init.sh DOMAIN_NAME`, where `DOMAIN_NAME` is the `CN` you want to assign to the host (commonly `localhost`).
@@ -154,6 +156,35 @@ If you plan to run your WordPress site over https on port 443, then do the follo
 3. Run `$ docker-compose up -d`
 4. Navigate to [https://DOMAIN_NAME]() in a browser where `DOMAIN_NAME` is the name of your site
 
+### Updating your Let's Encrypt certificate
+
+What is the lifetime for Let’s Encrypt certificates? For how long are they valid?
+
+- Let's Encrypt certificates are valid for 90 days. You can read about why [here](https://letsencrypt.org/2015/11/09/why-90-days.html).
+- There is no way to adjust this, there are no exceptions. Let's Encrypt recommends automatically renewing your certificates every 60 days.
+
+A script named [letsencrypt-renew.sh](letsencrypt/letsencrypt-renew.sh) has been provided to update your certificate as needed. This script can be run at any time along side of your already running site, and if the certificate is due for renewal, it will be renewed. If it is still valid or not yet close to the expiry date, then you'll see a `Cert not yet due for renewal` message such as the one below.
+
+```console
+$ ./letsencrypt-renew.sh
+Saving debug log to /var/log/letsencrypt/letsencrypt.log
+
+-------------------------------------------------------------------------------
+Processing /etc/letsencrypt/renewal/example.com.conf
+-------------------------------------------------------------------------------
+Cert not yet due for renewal
+
+-------------------------------------------------------------------------------
+
+The following certs are not due for renewal yet:
+  /etc/letsencrypt/live/example.com/fullchain.pem (skipped)
+No renewals were attempted.
+-------------------------------------------------------------------------------
+Killing nginx ... done
+```
+
+This script can be scheduled to run via a cron task every 15 days or so to ensure an automatic renewal of your certificate.
+
 ## <a name="opt_config"></a>Optional Configuration
 
 ### Environment Varialbles
@@ -182,9 +213,66 @@ MySQL environment variables.
       - MYSQL_ROOT_PASSWORD=password
 ```
 
+## Example deployment (using localhost)
+
+From the top level of the cloned repository, create host directories to preserve the container contents and create a basic Nginx configuration file.
+
+```
+cd wordpress-nginx-docker/
+### optional: directories would be created by docker if not done manually
+mkdir -p certs/ certs-data/ logs/nginx/ mysql/ wordpress/
+cp nginx/wordpress.conf.example nginx/wordpress.conf
+```
+
+Update `nginx/wordpress.conf` by changing the `server_name` value from `DOMAIN_NAME` to `127.0.0.1`.
+
+```console
+$ diff nginx/wordpress.conf.example nginx/wordpress.conf
+3c3
+<     server_name DOMAIN_NAME;
+---
+>     server_name 127.0.0.1;
+```
+
+Launch and daemonize the containers with `docker-compose up -d`
+
+```console
+$ docker-compose up -d
+Creating mysql ... done
+Creating wordpress ... done
+Creating nginx     ... done
+```
+
+### Initial Wordpress setup
+
+Navigate your browser to [http://127.0.0.1](http://127.0.0.1) and follow the installation prompts
+
+1. Set language
+
+    <img width="80%" alt="Select language" src="https://user-images.githubusercontent.com/5332509/44045885-f47a89fe-9ef7-11e8-8dae-0df0bfb269de.png">
+2. Create an administrative user
+
+    <img width="80%" alt="Create admin user" src="https://user-images.githubusercontent.com/5332509/44045887-f4897cfc-9ef7-11e8-89c6-cfc96cfc9ca0.png">
+
+3. Success
+
+    <img width="80%" alt="Success" src="https://user-images.githubusercontent.com/5332509/44045888-f49b344c-9ef7-11e8-9d65-39517f521d85.png">
+    
+4. Log in as the administrative user, dashboard, view site
+
+    <img width="80%" alt="First login" src="https://user-images.githubusercontent.com/5332509/44045889-f4a71992-9ef7-11e8-8f5d-8ab16da481c2.png">
+    
+    <img width="80%" alt="Site dashboard" src="https://user-images.githubusercontent.com/5332509/44045890-f4b4b264-9ef7-11e8-935b-cbc546cd9e00.png">
+    
+    <img width="80%" alt="View site" src="https://user-images.githubusercontent.com/5332509/44045891-f4c5f90c-9ef7-11e8-88e4-fc8cfb61ea7d.png">
+    
+    
+Once your site is running you can begin to create and publish any content you'd like in your Wordpress instance.
+
+
 ### Port Mapping
 
-Neither the **mysql** container nor the **wordpress** container have publicly exposed ports. They are running on the host using a docker defined network named `wp_network` which provides the containers with access to each others ports, but not from the host.
+Neither the **mysql** container nor the **wordpress** container have publicly exposed ports. They are running on the host using a docker defined network which provides the containers with access to each others ports, but not from the host.
 
 If you wish to expose the ports to the host, you'd need to alter the stanzas for each in the `docker-compose.yaml` file.
 
@@ -204,17 +292,25 @@ For the `wordpress` stanza, add
 
 ## Clean up / Removal
 
-Removing all related containers
+Because docker-compose was used to define the container relationships it can also be used to stop and remove the containers from the host they are running on.
 
-```
-$ cd wordpress-nginx-docker/
+Stop and remove containers:
+
+```console
+$ cd wordpress-nginx-docker
 $ docker-compose stop
+Stopping nginx     ... done
+Stopping wordpress ... done
+Stopping mysql     ... done
 $ docker-compose rm -f
+Going to remove nginx, wordpress, mysql
+Removing nginx     ... done
+Removing wordpress ... done
+Removing mysql     ... done
 ```
 
-Removing all related directories
+Removing all related directories:
 
-```
-$ cd wordpress-nginx-docker/
+```console
 $ rm -rf certs/ certs-data/ logs/ mysql/ wordpress/
 ```
