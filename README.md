@@ -244,9 +244,9 @@ services:
       - ./mysql:/var/lib/mysql
     environment:
       - MYSQL_ROOT_PASSWORD=password
-      - MYSQL_USER=wp_user             # same as WORDPRESS_DB_USER
-      - MYSQL_PASSWORD=wp_password     # same as WORDPRESS_DB_PASSWORD
-      - MYSQL_DATABASE=wordpress       # same as WORDPRESS_DB_NAME
+      - MYSQL_USER=wp_user                 # same as WORDPRESS_DB_USER
+      - MYSQL_PASSWORD=wp_password         # same as WORDPRESS_DB_PASSWORD
+      - MYSQL_DATABASE=wordpress           # same as WORDPRESS_DB_NAME
     restart: always
 
   wordpress:
@@ -258,8 +258,8 @@ services:
       - WORDPRESS_DB_NAME=wordpress
       - WORDPRESS_TABLE_PREFIX=wp_
       - WORDPRESS_DB_HOST=mysql
-      - WORDPRESS_DB_PASSWORD=wp_password
-      - WORDPRESS_DB_USER=wp_user      # new DB user (default is root)
+      - WORDPRESS_DB_PASSWORD=wp_password  # new DB password
+      - WORDPRESS_DB_USER=wp_user          # new DB user
     links:
       - mysql
     restart: always
