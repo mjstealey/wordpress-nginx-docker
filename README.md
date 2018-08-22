@@ -326,7 +326,7 @@ Once your site is running you can begin to create and publish any content you'd 
 
 Neither the **mysql** container nor the **wordpress** container have publicly exposed ports. They are running on the host using a docker defined network which provides the containers with access to each others ports, but not from the host.
 
-If you wish to expose the ports to the host, you'd need to alter the stanzas for each in the `docker-compose.yaml` file.
+If you wish to expose the ports to the host, you'd need to alter the stanzas for each in the `docker-compose.yml` file.
 
 For the `mysql` stanza, add
 
