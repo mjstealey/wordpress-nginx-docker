@@ -212,6 +212,59 @@ MySQL environment variables.
       - MYSQL_ROOT_PASSWORD=password
 ```
 
+### Non-root database user
+
+If you don't want 'root' as the `WORDPRESS_DB_USER`, then some extra configuration variables are required in the `mysql` container.
+
+Example:
+
+```yaml
+version: '3.6'
+services:
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./nginx:/etc/nginx/conf.d
+      - ./logs/nginx:/var/log/nginx
+      - ./wordpress:/var/www/html
+      - ./certs:/etc/letsencrypt
+      - ./certs-data:/data/letsencrypt
+    links:
+      - wordpress
+    restart: always
+
+  mysql:
+    image: mariadb
+    container_name: mysql
+    volumes:
+      - ./mysql:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_USER=wp_user             # same as WORDPRESS_DB_USER
+      - MYSQL_PASSWORD=wp_password     # same as WORDPRESS_DB_PASSWORD
+      - MYSQL_DATABASE=wordpress       # same as WORDPRESS_DB_NAME
+    restart: always
+
+  wordpress:
+    image: wordpress:php7.2-fpm
+    container_name: wordpress
+    volumes:
+      - ./wordpress:/var/www/html
+    environment:
+      - WORDPRESS_DB_NAME=wordpress
+      - WORDPRESS_TABLE_PREFIX=wp_
+      - WORDPRESS_DB_HOST=mysql
+      - WORDPRESS_DB_PASSWORD=wp_password
+      - WORDPRESS_DB_USER=wp_user      # new DB user (default is root)
+    links:
+      - mysql
+    restart: always
+```
+
 ## Example deployment (using localhost)
 
 From the top level of the cloned repository, create host directories to preserve the container contents and create a basic Nginx configuration file.
