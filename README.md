@@ -1,14 +1,20 @@
-# wordpress-nginx-docker
+# Wordpress: with Nginx web server in Docker
 
-Docker compose installation of a single site Wordpress instance using Nginx as the web server and MariaDB as the database.
+This project is a docker compose installation of a single site Wordpress instance using Nginx as the web server and MariaDB as the database.
 
-Let's Encrypt SSL enabled option using [https://hub.docker.com/r/certbot/certbot/](https://hub.docker.com/r/certbot/certbot/)
+- Let's Encrypt SSL enabled option using [https://hub.docker.com/r/certbot/certbot/](https://hub.docker.com/r/certbot/certbot/)
+- Work inspired by: [Dockerizing Wordpress with Nginx and PHP-FPM on Ubuntu 16.04](https://www.howtoforge.com/tutorial/dockerizing-wordpress-with-nginx-and-php-fpm/)
 
-Work inspired by: [Dockerizing Wordpress with Nginx and PHP-FPM on Ubuntu 16.04](https://www.howtoforge.com/tutorial/dockerizing-wordpress-with-nginx-and-php-fpm/)
+**What is Wordpress?** 
+
+- WordPress is open source software you can use to create a beautiful website, blog, or app.
+- More information at [https://wordpress.org](https://wordpress.org)
 
 ## Installation
 
-Review the [Optional configuration](#opt_config) options and determine if you'd like to apply any.
+Review the [Optional configuration](#opt_config) section to determine which apply to your deployment.
+
+A [Renew certificate](#renew) section has also been created as a guide of what to expect for post deployment certificate renewal if using Let's Encrypt.
 
 ### Create directories on host
 
@@ -155,7 +161,7 @@ INFO: update the nginx/wordpress_ssl.conf file
 3. Run `$ docker-compose up -d`
 4. Navigate to [https://DOMAIN_NAME]() in a browser where `DOMAIN_NAME` is the name of your site
 
-### Updating your Let's Encrypt certificate
+### <a name="renew"></a>Renew your Let's Encrypt certificate
 
 What is the lifetime for Let’s Encrypt certificates? For how long are they valid?
 
@@ -183,6 +189,65 @@ Killing nginx ... done
 ```
 
 This script can be scheduled to run via a cron task every 15 days or so to ensure an automatic renewal of your certificate.
+
+Prior to certificate expiration the user will receive an email from **The Let's Encrypt Team** with expiry information.
+
+Example email:
+
+>Hello,
+>
+>Your certificate (or certificates) for the names listed below will expire in 10 days (on 18 Sep 18 02:01 +0000). Please make sure to renew your certificate before then, or visitors to your website will encounter errors.
+>
+>We recommend renewing certificates automatically when they have a third of their
+total lifetime left. For Let's Encrypt's current 90-day certificates, that means
+renewing 30 days before expiration. See
+>[https://letsencrypt.org/docs/integration-guide/]() for details.
+>
+>- [example.com]()
+>- [www.example.com]()
+>
+>For any questions or support, please visit [https://community.letsencrypt.org/](). Unfortunately, we can't provide support by email.
+>
+>If you are receiving this email in error, unsubscribe at [http://mandrillapp.com/track/unsub.php?u=12345678&id=abcdefghijklmnopqrstuvwxyz.0123456789&r=https%3A%2F%2Fmandrillapp.com%2Funsub%3Fmd_email%3Dexample%2540example.com]()
+>
+>Regards,
+>The Let's Encrypt Team
+
+Running the `letsencrypt-renew.sh` script during an active renewal period would renew the site's certificates assuming the site has remainined in good standing.
+
+Example renewal:
+
+```console
+$ ./letsencrypt-renew.sh
+Saving debug log to /var/log/letsencrypt/letsencrypt.log
+
+-------------------------------------------------------------------------------
+Processing /etc/letsencrypt/renewal/example.com.conf
+-------------------------------------------------------------------------------
+Cert is due for renewal, auto-renewing...
+Plugins selected: Authenticator webroot, Installer None
+Renewing an existing certificate
+Performing the following challenges:
+http-01 challenge for example.com
+http-01 challenge for www.example.com
+Using the webroot path /data/letsencrypt for all unmatched domains.
+Waiting for verification...
+Cleaning up challenges
+
+-------------------------------------------------------------------------------
+new certificate deployed without reload, fullchain is
+/etc/letsencrypt/live/example.com/fullchain.pem
+-------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+
+Congratulations, all renewals succeeded. The following certs have been renewed:
+  /etc/letsencrypt/live/example.com/fullchain.pem (success)
+-------------------------------------------------------------------------------
+Killing nginx ... done
+```
+
+And that's it!
 
 ## <a name="opt_config"></a>Optional Configuration
 
