@@ -98,7 +98,7 @@ INFO: update the nginx/wordpress_ssl.conf file
 What is the lifetime for Let’s Encrypt certificates? For how long are they valid?
 
 - Let's Encrypt certificates are valid for 90 days. You can read about why [here](https://letsencrypt.org/2015/11/09/why-90-days.html).
-- There is no way to adjust this, there are no exceptions. Let's Encrypt recommends automatically renewing your certificates every 60 days.
+- There is no way to adjust this, there are no exceptions. Let's Encrypt recommends automatically renewing your certificates every 60 days. Though the `docker-compose` has been setup so that it ill automatically check for the updates and will update it automatically it needed. Still, if you want to renew it manually you can anytime. Though I haven't checked this script with mine. Let me know if it does not work.
 
 A script named [letsencrypt-renew.sh](letsencrypt/letsencrypt-renew.sh) has been provided to update your certificate as needed. This script can be run at any time along side of your already running site, and if the certificate is due for renewal, it will be renewed. If it is still valid or not yet close to the expiry date, then you'll see a `Cert not yet due for renewal` message such as the one below.
 
