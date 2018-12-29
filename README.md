@@ -38,9 +38,9 @@ $ cd wordpress-nginx-docker/
 If you plan to run your WordPress site over http on port 80, then do the following.
 
 1. Change the name of `nginx/wordpress.conf.example` to `nginx/wordpress.conf` 
-2. Update the `DOMAIN_NAME` in `nginx/wordpress.conf` to be that of your domain
+2. Update the `DOMAIN` in `nginx/wordpress.conf` to be that of your domain
 3. Run `$ docker-compose up -d`
-4. Navigate to [http://DOMAIN_NAME]() in a browser where `DOMAIN_NAME` is the name of your site
+4. Navigate to [http://DOMAIN]() in a browser where `DOMAIN` is the name of your site
 
 ### HTTPS with SSL Certificates
 
@@ -52,86 +52,18 @@ If you plan to run your WordPress site over https on port 443, then do the follo
 
     If you plan on using SSL certificates from [Let's Encrypt](https://letsencrypt.org) it is important that your public domain is already DNS registered and publically reachable.
 	
-    Run: `./letsencrypt/letsencrypt-init.sh DOMAIN_NAME`, where `DOMAIN_NAME` is the publicly registered domain name of your host to generate your initial certificate. (Information about updating your Let's Encrypt certificate can be found further down in this document)
+    Run: `./letsencrypt/letsencrypt-init.sh DOMAIN`, where `DOMAIN` is the publicly registered domain name of your host to generate your initial certificate. (Information about updating your Let's Encrypt certificate can be found further down in this document)
+
+    Make sure that you have updated the domain and email in letsencrypt/letsencrypt-init.sh
 
 ```console
-$ ./letsencrypt-init.sh example.com
-mysql uses an image, skipping
-wordpress uses an image, skipping
-nginx uses an image, skipping
-Creating mysql ...
-Creating mysql ... done
-Creating wordpress ...
-Creating wordpress ... done
-Creating nginx ...
-Creating nginx ... done
-Reloading nginx: nginx.
-Saving debug log to /var/log/letsencrypt/letsencrypt.log
-Plugins selected: Authenticator webroot, Installer None
-Enter email address (used for urgent renewal and security notices) (Enter 'c' to
-cancel): mjstealey@gmail.com
-
--------------------------------------------------------------------------------
-Please read the Terms of Service at
-https://letsencrypt.org/documents/LE-SA-v1.1.1-August-1-2016.pdf. You must agree
-in order to register with the ACME server at
-https://acme-v01.api.letsencrypt.org/directory
--------------------------------------------------------------------------------
-(A)gree/(C)ancel: a
-
--------------------------------------------------------------------------------
-Would you be willing to share your email address with the Electronic Frontier
-Foundation, a founding partner of the Let's Encrypt project and the non-profit
-organization that develops Certbot? We'd like to send you email about EFF and
-our work to encrypt the web, protect its users and defend digital rights.
--------------------------------------------------------------------------------
-(Y)es/(N)o: y
-Obtaining a new certificate
-Performing the following challenges:
-http-01 challenge for example.com
-http-01 challenge for www.example.com
-Using the webroot path /data/letsencrypt for all unmatched domains.
-Waiting for verification...
-Cleaning up challenges
-
-IMPORTANT NOTES:
-    ssl                       on;
- - Congratulations! Your certificate and chain have been saved at:
-   /etc/letsencrypt/live/example.com/fullchain.pem
-   Your key file has been saved at:
-   /etc/letsencrypt/live/example.com/privkey.pem
-   Your cert will expire on 2018-02-06. To obtain a new or tweaked
-   version of this certificate in the future, simply run certbot
-   again. To non-interactively renew *all* of your certificates, run
-   "certbot renew"
- - Your account credentials have been saved in your Certbot
-   configuration directory at /etc/letsencrypt. You should make a
-   secure backup of this folder now. This configuration directory will
-   also contain certificates and private keys obtained by Certbot so
-   making regular backups of this folder is ideal.
- - If you like Certbot, please consider supporting our work by:
-
-   Donating to ISRG / Let's Encrypt:   https://letsencrypt.org/donate
-   Donating to EFF:                    https://eff.org/donate-le
-
-Stopping nginx     ... done
-Stopping wordpress ... done
-Stopping mysql     ... done
-Going to remove nginx, wordpress, mysql
-Removing nginx     ... done
-Removing wordpress ... done
-Removing mysql     ... done
-INFO: update the nginx/wordpress_ssl.conf file
--  4:   server_name example.com;
-- 19:   server_name               example.com www.example.com;
-- 46:   ssl_certificate           /etc/letsencrypt/live/example.com/fullchain.pem;
-- 47:   ssl_certificate_key       /etc/letsencrypt/live/example.com/privkey.pem;
-- 48:   ssl_trusted_certificate   /etc/letsencrypt/live/example.com/chain.pem;
+$ chmox +x ./letsencrypt/letsencrypt-init.sh
+$ ./letsencrypt/letsencrypt-init.sh
 ```
 	
 - **Self signed**
 
-	If you plan on using self signed SSL certificates, run: `./letsencrypt/self-signed-init.sh DOMAIN_NAME`, where `DOMAIN_NAME` is the `CN` you want to assign to the host (commonly `localhost`).
+	If you plan on using self signed SSL certificates, run: `./letsencrypt/self-signed-init.sh DOMAIN`, where `DOMAIN` is the `CN` you want to assign to the host (commonly `localhost`).
 	
 ```console
 $ cd letsencrypt/
@@ -147,7 +79,7 @@ INFO: update the nginx/wordpress_ssl.conf file
 - 19:   server_name               localhost www.localhost;
 - 46:   ssl_certificate           /etc/letsencrypt/live/localhost/cert.pem;
 - 47:   ssl_certificate_key       /etc/letsencrypt/live/localhost/privkey.pem;
-- 48:   #ssl_trusted_certificate   /etc/letsencrypt/live/DOMAIN_NAME/chain.pem; <-- COMMENT OUT OR REMOVE
+- 48:   #ssl_trusted_certificate   /etc/letsencrypt/live/DOMAIN/chain.pem; <-- COMMENT OUT OR REMOVE
 ```
 
 - **Bring your own**
@@ -157,9 +89,9 @@ INFO: update the nginx/wordpress_ssl.conf file
 **Finally**
 
 1. Change the name of `nginx/wordpress_ssl.conf.example` to `nginx/wordpress_ssl.conf` 
-2. Update the `DOMAIN_NAME` in `nginx/wordpress_ssl.conf` to be that of your domain
+2. Update the `DOMAIN` in `nginx/wordpress_ssl.conf` to be that of your domain
 3. Run `$ docker-compose up -d`
-4. Navigate to [https://DOMAIN_NAME]() in a browser where `DOMAIN_NAME` is the name of your site
+4. Navigate to [https://DOMAIN]() in a browser where `DOMAIN` is the name of your site
 
 ### <a name="renew"></a>Renew your Let's Encrypt certificate
 
@@ -300,6 +232,7 @@ services:
       - ./certs-data:/data/letsencrypt
     links:
       - wordpress
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
     restart: always
 
   mysql:
@@ -308,10 +241,11 @@ services:
     volumes:
       - ./mysql:/var/lib/mysql
     environment:
-      - MYSQL_ROOT_PASSWORD=password
-      - MYSQL_USER=wp_user                 # same as WORDPRESS_DB_USER
-      - MYSQL_PASSWORD=wp_password         # same as WORDPRESS_DB_PASSWORD
-      - MYSQL_DATABASE=wordpress           # same as WORDPRESS_DB_NAME
+      - MYSQL_ROOT_HOST=%
+      - MYSQL_ROOT_PASSWORD=PASSWORD
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=PASSWORD
+      - MYSQL_DATABASE=DBNAME
     restart: always
 
   wordpress:
@@ -320,14 +254,20 @@ services:
     volumes:
       - ./wordpress:/var/www/html
     environment:
-      - WORDPRESS_DB_NAME=wordpress
+      - WORDPRESS_DB_NAME=DBNAME
       - WORDPRESS_TABLE_PREFIX=wp_
       - WORDPRESS_DB_HOST=mysql
-      - WORDPRESS_DB_PASSWORD=wp_password  # new DB password
-      - WORDPRESS_DB_USER=wp_user          # new DB user
+      - WORDPRESS_DB_PASSWORD=PASSWORD
     links:
       - mysql
     restart: always
+  
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./certs:/etc/letsencrypt
+      - ./certs-data:/data/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
 ```
 
 ## Example deployment (using localhost)
@@ -341,12 +281,12 @@ mkdir -p certs/ certs-data/ logs/nginx/ mysql/ wordpress/
 cp nginx/wordpress.conf.example nginx/wordpress.conf
 ```
 
-Update `nginx/wordpress.conf` by changing the `server_name` value from `DOMAIN_NAME` to `127.0.0.1`.
+Update `nginx/wordpress.conf` by changing the `server_name` value from `DOMAIN` to `127.0.0.1`.
 
 ```console
 $ diff nginx/wordpress.conf.example nginx/wordpress.conf
 3c3
-<     server_name DOMAIN_NAME;
+<     server_name DOMAIN;
 ---
 >     server_name 127.0.0.1;
 ```

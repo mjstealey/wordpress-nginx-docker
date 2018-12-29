@@ -1,76 +1,68 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-LE_DIR=$(pwd)
-REPO_DIR=$(dirname ${LE_DIR})
-CERTS=${REPO_DIR}/certs
-CERTS_DATA=${REPO_DIR}/certs-data
+domains=( "DOMAIN" "DOMAIN")
+rsa_key_size=4096
+data_path="./cert-data"
+email=" " #Adding a valid address is strongly recommended 
+staging=0 #Set to 1 if you're just testing your setup to avoid hitting request limits
 
-_default_conf () {
-    local OUTFILE=default.conf
-    echo "server {" > $OUTFILE
-    echo "    listen      80;" >> $OUTFILE
-    echo "    listen [::]:80;" >> $OUTFILE
-    echo "    server_name ${DOMAIN_NAME};" >> $OUTFILE
-    echo "" >> $OUTFILE
-    echo "    location / {" >> $OUTFILE
-    echo "        rewrite ^ https://\$host\$request_uri? permanent;" >> $OUTFILE
-    echo "    }" >> $OUTFILE
-    echo "" >> $OUTFILE
-    echo "    location ^~ /.well-known {" >> $OUTFILE
-    echo "        allow all;" >> $OUTFILE
-    echo "        root  /data/letsencrypt/;" >> $OUTFILE
-    echo "    }" >> $OUTFILE
-    echo "}" >> $OUTFILE
-}
+echo "### Preparing directories in $data_path ..."
+rm -Rf "$data_path"
+mkdir -p "$data_path/www"
+mkdir -p "$data_path/conf/live/$domains"
 
-# DOMAIN_NAME should not include prefix of www.
-if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 DOMAIN_NAME" >&2
-    exit 1;
-else
-    DOMAIN_NAME=$1
-fi
 
-if [ ! -d "${CERTS}" ]; then
-    echo "INFO: making certs directory"
-    mkdir ${CERTS}
-fi
+echo "### Creating dummy certificate ..."
+path="/etc/letsencrypt/live/$domains"
+mkdir -p "$path"
+docker-compose run --rm --entrypoint "\
+    openssl req -x509 -nodes -newkey rsa:1024 -days 1\
+      -keyout '$path/privkey.pem' \
+      -out '$path/fullchain.pem' \
+      -subj '/CN=localhost'" certbot
 
-if [ ! -d "${CERTS_DATA}" ]; then
-    echo "INFO: making certs-data directory"
-    mkdir ${CERTS_DATA}
-fi
 
-# Launch Nginx container with CERTS and CERTS_DATA mounts
-_default_conf
-cd ${REPO_DIR}
-docker-compose build
-docker-compose up -d
-sleep 5s
-docker cp ${LE_DIR}/default.conf nginx:/etc/nginx/conf.d/default.conf
-docker exec nginx /etc/init.d/nginx reload
-sleep 5s
-cd ${LE_DIR}
+echo "### Downloading recommended HTTPS parameters ..."
+curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot-nginx/certbot_nginx/options-ssl-nginx.conf > "$data_path/conf/options-ssl-nginx.conf"
+curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot/ssl-dhparams.pem > "$data_path/conf/ssl-dhparams.pem"
 
-docker run -it --rm \
-    -v ${CERTS}:/etc/letsencrypt \
-    -v ${CERTS_DATA}:/data/letsencrypt \
-    certbot/certbot \
-    certonly \
-    --webroot --webroot-path=/data/letsencrypt \
-    -d ${DOMAIN_NAME} -d www.${DOMAIN_NAME}
 
-cd ${REPO_DIR}
-docker-compose stop
-docker-compose rm -f
-cd ${LE_DIR}
-rm -f ${REPO_DIR}/nginx/default.conf
+echo "### Starting nginx ..."
+docker-compose up -d nginx
 
-echo "INFO: update the nginx/wordpress_ssl.conf file"
-echo "-  4:   server_name ${DOMAIN_NAME};"
-echo "- 19:   server_name               ${DOMAIN_NAME} www.${DOMAIN_NAME};"
-echo "- 46:   ssl_certificate           /etc/letsencrypt/live/${DOMAIN_NAME}/fullchain.pem;"
-echo "- 47:   ssl_certificate_key       /etc/letsencrypt/live/${DOMAIN_NAME}/privkey.pem;"
-echo "- 48:   ssl_trusted_certificate   /etc/letsencrypt/live/${DOMAIN_NAME}/chain.pem;"
 
-exit 0;
+echo "### Deleting dummy certificate ..."
+sudo rm -Rf "$data_path/conf/live"
+
+echo "### Downloading recommended TLS options ..."
+curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot-nginx/certbot_nginx/options-ssl-nginx.conf > "$data_path/conf/options-ssl-nginx.conf"
+curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot/ssl-dhparams.pem > "$data_path/conf/ssl-dhparams.pem"
+
+
+echo "### Requesting initial certificate ..."
+
+#Join $domains to -d args
+domain_args=""
+for domain in "${domains[@]}"; do
+  domain_args="$domain_args -d $domain"
+done
+
+#Select appropriate email arg
+case "$email" in
+  "") email_arg="--register-unsafely-without-email" ;;
+  *) email_arg="--email $email" ;;
+esac
+
+#Enable staging mode if needed
+if [ $staging != "0" ]; then staging_arg="--staging"; fi
+
+docker-compose run --rm --entrypoint "\
+  certbot certonly --webroot -w /data/letsencrypt \
+    $staging_arg \
+    $email_arg \
+    $domain_args \
+    --rsa-key-size $rsa_key_size \
+    --agree-tos \
+    --force-renewal" certbot
+
+docker-compose stop nginx

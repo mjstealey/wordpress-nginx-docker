@@ -1,6 +1,6 @@
 server {
     listen 80;
-    server_name DOMAIN_NAME;
+    server_name DOMAIN;
 
     root /var/www/html;
     index index.php;
@@ -21,4 +21,9 @@ server {
         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
         fastcgi_param PATH_INFO $fastcgi_path_info;
     }
+    location ^~ /.well-known {
+        allow all;
+        root  /data/letsencrypt/;
+    }
+
 }

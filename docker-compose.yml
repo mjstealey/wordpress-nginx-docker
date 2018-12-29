@@ -14,6 +14,7 @@ services:
       - ./certs-data:/data/letsencrypt
     links:
       - wordpress
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
     restart: always
 
   mysql:
@@ -22,7 +23,11 @@ services:
     volumes:
       - ./mysql:/var/lib/mysql
     environment:
-      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_ROOT_HOST=%
+      - MYSQL_ROOT_PASSWORD=PASSWORD
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=PASSWORD
+      - MYSQL_DATABASE=DBNAME
     restart: always
 
   wordpress:
@@ -31,10 +36,17 @@ services:
     volumes:
       - ./wordpress:/var/www/html
     environment:
-      - WORDPRESS_DB_NAME=wordpress
+      - WORDPRESS_DB_NAME=DBNAME
       - WORDPRESS_TABLE_PREFIX=wp_
       - WORDPRESS_DB_HOST=mysql
-      - WORDPRESS_DB_PASSWORD=password
+      - WORDPRESS_DB_PASSWORD=PASSWORD
     links:
       - mysql
     restart: always
+  
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./certs:/etc/letsencrypt
+      - ./certs-data:/data/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
