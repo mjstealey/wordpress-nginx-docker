@@ -25,11 +25,11 @@ openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem \
 mv cert.pem ${CERTS}/live/${FQDN_OR_IP}/fullchain.pem
 mv key.pem ${CERTS}/live/${FQDN_OR_IP}/privkey.pem
 
-echo "INFO: update the nginx/wordpress_ssl.conf file"
+echo "INFO: update the nginx/default.conf file"
 echo "-  4:   server_name ${FQDN_OR_IP};"
 echo "- 19:   server_name               ${FQDN_OR_IP} www.${FQDN_OR_IP};"
-echo "- 46:   ssl_certificate           /etc/letsencrypt/live/${FQDN_OR_IP}/fullchain.pem;"
-echo "- 47:   ssl_certificate_key       /etc/letsencrypt/live/${FQDN_OR_IP}/privkey.pem;"
-echo "- 48:   #ssl_trusted_certificate   /etc/letsencrypt/live/FQDN_OR_IP/chain.pem; <-- COMMENT OUT OR REMOVE"
+echo "- 40:   ssl_certificate           /etc/letsencrypt/live/${FQDN_OR_IP}/fullchain.pem;"
+echo "- 41:   ssl_certificate_key       /etc/letsencrypt/live/${FQDN_OR_IP}/privkey.pem;"
+echo "- 42:   #ssl_trusted_certificate   /etc/letsencrypt/live/FQDN_OR_IP/chain.pem; <-- COMMENT OUT OR REMOVE"
 
 exit 0;

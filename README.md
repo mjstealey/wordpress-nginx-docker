@@ -22,7 +22,7 @@ This project is a docker compose installation of a single site WordPress instanc
 - [Deploy](#deploy) - deploying your WordPress site
 - [Running site](#site) - what to expect after you deploy
 - [Stop and remove](#stop-and-remove) - clear all files associated with running the site
-- [Configuration options](#opt-config) - additional options for deploying your site
+- [Optional configuration](#opt-config) - additional options for deploying your site
 - [Debugging tips](#debug) - basic tips for debugging your site when something goes wrong
 
 ## <a name="tldr"></a>TL;DR
@@ -439,7 +439,7 @@ $ rm -rf certs/ certs-data/ logs/ mysql/ wordpress/
 
 A script named `stop-and-remove.sh` has been provided to run these commands for you. See an example [here](CONSOLE.md/#stop-and-remove). 
 
-## <a name="opt_config"></a>Optional Configuration
+## <a name="opt-config"></a>Optional Configuration
 
 ### Environment Variables
 
@@ -518,7 +518,7 @@ For the `wordpress` stanza, add
 ```
 
 
-## Debugging tips
+## <a name="debug"></a>Debugging tips
 
 TODO:
 

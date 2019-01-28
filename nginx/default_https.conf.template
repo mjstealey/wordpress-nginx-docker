@@ -18,7 +18,6 @@ server {
     listen [::]:443           ssl http2;
     server_name               FQDN_OR_IP www.FQDN_OR_IP;
 
-
     add_header                Strict-Transport-Security "max-age=31536000" always;
 
     ssl_session_cache         shared:SSL:20m;
