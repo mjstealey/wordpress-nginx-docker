@@ -1,24 +1,48 @@
-# Wordpress: with Nginx web server in Docker
+# WordPress: with Nginx web server in Docker
 
-This project is a docker compose installation of a single site Wordpress instance using Nginx as the web server and MariaDB as the database.
+This project is a docker compose installation of a single site WordPress instance using Nginx as the web server and MariaDB as the database.
 
 - Let's Encrypt SSL enabled option using [https://hub.docker.com/r/certbot/certbot/](https://hub.docker.com/r/certbot/certbot/)
-- Work inspired by: [Dockerizing Wordpress with Nginx and PHP-FPM on Ubuntu 16.04](https://www.howtoforge.com/tutorial/dockerizing-wordpress-with-nginx-and-php-fpm/)
+- Work inspired by: [Dockerizing WordPress with Nginx and PHP-FPM on Ubuntu 16.04](https://www.howtoforge.com/tutorial/dockerizing-wordpress-with-nginx-and-php-fpm/)
 
-**What is Wordpress?** 
+**What is WordPress?** 
 
 - WordPress is open source software you can use to create a beautiful website, blog, or app.
 - More information at [https://wordpress.org](https://wordpress.org)
 
-## Installation
+## Table of Contents
 
-Review the [Optional configuration](#opt_config) section to determine which apply to your deployment.
+- [TL;DR](#tldr) - I don't want details and just want to run WordPress locally using http
+- [Setup and configuration](#setup) - environment and configuration setup options
+  - [HTTP or HTTPS?](#http-or-https) - http or https (via Let's Encrypt) to serve your content
+  - [SSL certificates](#ssl-certs) - secure socket layer encryption options
+  - [Let's Encrypt initialization](#lets-encrypt) - use Let's Encrypt for SSL certificates
+  - [Let's Encrypt renewal](#renew) - how to renew your Let's Encrypt certificates
+  - [.env](#dotenv) - variable declaration for docker-compose to use
+- [Deploy](#deploy) - deploying your WordPress site
+- [Running site](#site) - what to expect after you deploy
+- [Stop and remove](#stop-and-remove) - clear all files associated with running the site
+- [Configuration options](#opt-config) - additional options for deploying your site
+- [Debugging tips](#debug) - basic tips for debugging your site when something goes wrong
 
-A [Renew certificate](#renew) section has also been created as a guide of what to expect for post deployment certificate renewal if using Let's Encrypt.
+## <a name="tldr"></a>TL;DR
+
+**NOTE**: assumes you are starting from the top level of the cloned repository (`PWD == ./wordpress-nginx-docker`)
+
+```
+mkdir -p certs/ certs-data/ logs/nginx/ mysql/ wordpress/
+docker-compose up -d
+```
+
+After a few moments you should see your site running at [http://127.0.0.1](http://127.0.0.1) ready to be configured.
+
+Further details available [here](CONSOLE.md/#tldr).
+
+## <a name="setup"></a>Setup and configuration
 
 ### Create directories on host
 
-Directories are created on the host to persist data for the containers to volume mount from the host.
+Directories are created on the host and volume mounted to the docker containers. This allows the user to persist data beyond the scope of the container itself. If volumes are not persisted to the host the user runs the risk of losing their data when the container is updated or removed.
 
 - **mysql**: The database files for MariaDB
 - **wordpress**: The WordPress media files
@@ -29,32 +53,90 @@ Directories are created on the host to persist data for the containers to volume
 From the top level of the cloned repository, create the directories that will be used for managing the data on the host.
 
 ```
-$ cd wordpress-nginx-docker/
-# mkdir -p certs/ certs-data/ logs/nginx/ mysql/ wordpress/
+mkdir -p certs/ certs-data/ logs/nginx/ mysql/ wordpress/
 ```
+
+**NOTE**: for permissions reasons it is important for the user to create these directories prior to issuing the docker-compose command. If the directories do not already exist when the containers are started, the directories will be created at start time and will be owned by the root user of the container process. This can lead to access denied permission issues.
+
+### <a name="http-or-https"></a>HTTP or HTTPS?
+
+There are three files in the `nginx` directory, and which one you use depends on whether you want to serve your site using HTTP or HTTPS.
+
+Files in the `nginx` directory:
+
+- `default.conf` - Example configuration for running locally on port 80 using http.
+- `default_http.conf.template` - Example configuration for running at a user defined `FQDN_OR_IP` on port 80 using http.
+- `default_https.conf.template` - Example configuration for running at a user defined `FQDN_OR_IP` on port 443 using https.
+
+**NOTE**: `FQDN_OR_IP` is short for Fully Qualified Domain Name or IP Address, and should be DNS resolvable if using a hostname.
+
+Both of these are protocols for transferring the information of a particular website between the Web Server and Web Browser. But what’s difference between these two? Well, extra "s" is present in https and that makes it secure! 
+
+A very short and concise difference between http and https is that https is much more secure compared to http. https = http + cryptographic protocols.
+
+Main differences between HTTP and HTTPS
+
+- In HTTP, URL begins with [http://]() whereas an HTTPS URL starts with [https://]()
+- HTTP uses port number `80` for communication and HTTPS uses `443`
+- HTTP is considered to be unsecured and HTTPS is secure
+- HTTP Works at Application Layer and HTTPS works at Transport Layer
+- In HTTP, Encryption is absent whereas Encryption is present in HTTPS
+- HTTP does not require any certificates and HTTPS needs SSL Certificates (signed, unsigned or self generated)
 
 ### HTTP
 
 If you plan to run your WordPress site over http on port 80, then do the following.
 
-1. Change the name of `nginx/wordpress.conf.example` to `nginx/wordpress.conf` 
-2. Update the `DOMAIN_NAME` in `nginx/wordpress.conf` to be that of your domain
-3. Run `$ docker-compose up -d`
-4. Navigate to [http://DOMAIN_NAME]() in a browser where `DOMAIN_NAME` is the name of your site
+1. Replace the contents of `nginx/default.conf` with the `nginx/default_http.conf.template` file 
+2. Update the `FQDN_OR_IP` in `nginx/default.conf` to be that of your domain
+3. Run `$ docker-compose up -d` and allow a few moments for the containers to set themselves up
+4. Navigate to [http://FQDN_OR_IP]() in a browser where `FQDN_OR_IP` is the hostname or IP Address of your site
 
-### HTTPS with SSL Certificates
+### HTTPS
 
 If you plan to run your WordPress site over https on port 443, then do the following.
 
-**Choose a method for SSL certificates**
+1. Replace the contents of `nginx/default.conf` with the `nginx/default_https.conf.template` file. 
+2. Update the `FQDN_OR_IP` in `nginx/default.conf` to be that of your domain (occurs in many places)
+3. Review the options for SSL certificates below to complete your configuration
 
-- **Let's Encrypt**
+## <a name="ssl-certs"></a>SSL Certificates
 
-    If you plan on using SSL certificates from [Let's Encrypt](https://letsencrypt.org) it is important that your public domain is already DNS registered and publically reachable.
-	
-    Run: `./letsencrypt/letsencrypt-init.sh DOMAIN_NAME`, where `DOMAIN_NAME` is the publicly registered domain name of your host to generate your initial certificate. (Information about updating your Let's Encrypt certificate can be found further down in this document)
+**What are SSL Certificates?**
+
+SSL Certificates are small data files that digitally bind a cryptographic key to an organization’s details. When installed on a web server, it activates the padlock and the https protocol and allows secure connections from a web server to a browser. Typically, SSL is used to secure credit card transactions, data transfer and logins, and more recently is becoming the norm when securing browsing of social media sites.
+
+SSL Certificates bind together:
+
+- A domain name, server name or hostname.
+- An organizational identity (i.e. company name) and location.
+
+Three options for obtaining/installing SSL Certificates are outlined below.
+
+1. Let's Encrypt - free SSL Certificate service
+2. Bring your own - you already have a valid certificate
+3. Self signed - you can generate your own self signed certificates to use for testing
+
+### <a name="lets-encrypt"></a>Let's Encrypt
+
+Let’s Encrypt is a free, automated, and open certificate authority (CA), run for the public’s benefit. It is a service provided by the Internet Security Research Group (ISRG).
+
+We give people the digital certificates they need in order to enable HTTPS (SSL/TLS) for websites, for free, in the most user-friendly way we can. We do this because we want to create a more secure and privacy-respecting Web.
+
+- If you plan on using SSL certificates from [Let's Encrypt](https://letsencrypt.org) it is important that your public domain is already DNS registered and publicly reachable.
+
+Two scripts have been provided to help automate the Let's Encrypt interactions needed to obtain and maintain your certificates.
+
+- `letsencrypt-init.sh` - run once when first setting up your site to obtain certificates
+- `letsencrypt-renew.sh` - run as needed to renew your previously issued certificate
+
+
+**NOTE**: these scripts should be run from within the `letsencrypt/` directory. It is important to run the initialization script BEFORE deploying your site.
+
+**USAGE**: `./letsencrypt-init.sh FQDN_OR_IP`, where `FQDN_OR_IP` is the publicly registered domain name of your host to generate your initial certificate. (Information about updating your Let's Encrypt certificate can be found further down in this document)
 
 ```console
+$ cd letsencrypt/
 $ ./letsencrypt-init.sh example.com
 mysql uses an image, skipping
 wordpress uses an image, skipping
@@ -128,10 +210,14 @@ INFO: update the nginx/wordpress_ssl.conf file
 - 47:   ssl_certificate_key       /etc/letsencrypt/live/example.com/privkey.pem;
 - 48:   ssl_trusted_certificate   /etc/letsencrypt/live/example.com/chain.pem;
 ```
-	
-- **Self signed**
 
-	If you plan on using self signed SSL certificates, run: `./letsencrypt/self-signed-init.sh DOMAIN_NAME`, where `DOMAIN_NAME` is the `CN` you want to assign to the host (commonly `localhost`).
+### Bring your own
+
+If you plan to use pre-existing certificates you will need to update the `nginx/default.conf` file with the appropriate settings to the kind of certificates you have.
+	
+### Self signed
+
+**USAGE**: `./self-signed-init.sh FQDN_OR_IP`, where `FQDN_OR_IP` is the `CN` you want to assign to the host (commonly `localhost`).
 	
 ```console
 $ cd letsencrypt/
@@ -147,19 +233,8 @@ INFO: update the nginx/wordpress_ssl.conf file
 - 19:   server_name               localhost www.localhost;
 - 46:   ssl_certificate           /etc/letsencrypt/live/localhost/cert.pem;
 - 47:   ssl_certificate_key       /etc/letsencrypt/live/localhost/privkey.pem;
-- 48:   #ssl_trusted_certificate   /etc/letsencrypt/live/DOMAIN_NAME/chain.pem; <-- COMMENT OUT OR REMOVE
+- 48:   #ssl_trusted_certificate   /etc/letsencrypt/live/FQDN_OR_IP/chain.pem; <-- COMMENT OUT OR REMOVE
 ```
-
-- **Bring your own**
-
-    If you plan to use pre-existing certificates you will need to update the `nginx/wordpress_ssl.conf` file with the appropriate settings to the kind of certificates you have.
-
-**Finally**
-
-1. Change the name of `nginx/wordpress_ssl.conf.example` to `nginx/wordpress_ssl.conf` 
-2. Update the `DOMAIN_NAME` in `nginx/wordpress_ssl.conf` to be that of your domain
-3. Run `$ docker-compose up -d`
-4. Navigate to [https://DOMAIN_NAME]() in a browser where `DOMAIN_NAME` is the name of your site
 
 ### <a name="renew"></a>Renew your Let's Encrypt certificate
 
@@ -249,118 +324,69 @@ Killing nginx ... done
 
 And that's it!
 
-## <a name="opt_config"></a>Optional Configuration
+### <a name="dotenv"></a>.env
 
-### Environment Varialbles
+A `.env` file has been included to more easily set docker-compose variables without having to modify the docker-compose.yml file itself.
 
-WordPress environment variables. See the [official image](https://hub.docker.com/_/wordpress/) for additional information.
+Default values have been provided as a means of getting up and running quickly for testing purposes. It is up to the user to modify these to best suit their deployment preferences.
 
-- `WORDPRESS_DB_NAME`: Name of database used for WordPress in MariaDB
-- `WORDPRESS_TABLE_PREFIX`: Prefix appended to all WordPress related tables in the `WORDPRESS_DB_NAME` database
-- `WORDPRESS_DB_HOST `: Hostname of the database server / container
-- `WORDPRESS_DB_PASSWORD `: Database password for the `WORDPRESS_DB_USER`. By default 'root' is the `WORDPRESS_DB_USER`.
+Example `.env` file:
 
-```yaml
-    environment:
-      - WORDPRESS_DB_NAME=wordpress
-      - WORDPRESS_TABLE_PREFIX=wp_
-      - WORDPRESS_DB_HOST=mysql
-      - WORDPRESS_DB_PASSWORD=password
+```env
+# wordpress - wordpress:php7.3-fpm
+WORDPRESS_DB_NAME=wordpress
+WORDPRESS_TABLE_PREFIX=wp_
+WORDPRESS_DB_HOST=mysql
+WORDPRESS_DB_USER=root
+WORDPRESS_DB_PASSWORD=password
+
+# mariadb - mariadb:latest
+MYSQL_ROOT_PASSWORD=password
+MYSQL_USER=root
+MYSQL_PASSWORD=password
+MYSQL_DATABASE=wordpress
+
+# nginx - nginx:latest
+NGINX_DEFAULT_CONF=./nginx/default.conf
 ```
 
-MySQL environment variables.
+## <a name="deploy"></a>Deploy
 
-- If you've altered the `WORDPRESS_DB_PASSWORD` you should also set the `MYSQL_ROOT_PASSWORD ` to be the same as they will both be associated with the user 'root'.
+Once configuration has been completed deployment is just a matter of invoking the docker-compose command. Depending on the output you want to see you can choose to daemonize the launching of the containers with `-d`
 
-```yaml
-    environment:
-      - MYSQL_ROOT_PASSWORD=password
-```
-
-### Non-root database user
-
-If you don't want 'root' as the `WORDPRESS_DB_USER`, then some extra configuration variables are required in the `mysql` container.
-
-Example:
-
-```yaml
-version: '3.6'
-services:
-  nginx:
-    image: nginx:latest
-    container_name: nginx
-    ports:
-      - '80:80'
-      - '443:443'
-    volumes:
-      - ./nginx:/etc/nginx/conf.d
-      - ./logs/nginx:/var/log/nginx
-      - ./wordpress:/var/www/html
-      - ./certs:/etc/letsencrypt
-      - ./certs-data:/data/letsencrypt
-    links:
-      - wordpress
-    restart: always
-
-  mysql:
-    image: mariadb
-    container_name: mysql
-    volumes:
-      - ./mysql:/var/lib/mysql
-    environment:
-      - MYSQL_ROOT_PASSWORD=password
-      - MYSQL_USER=wp_user                 # same as WORDPRESS_DB_USER
-      - MYSQL_PASSWORD=wp_password         # same as WORDPRESS_DB_PASSWORD
-      - MYSQL_DATABASE=wordpress           # same as WORDPRESS_DB_NAME
-    restart: always
-
-  wordpress:
-    image: wordpress:php7.2-fpm
-    container_name: wordpress
-    volumes:
-      - ./wordpress:/var/www/html
-    environment:
-      - WORDPRESS_DB_NAME=wordpress
-      - WORDPRESS_TABLE_PREFIX=wp_
-      - WORDPRESS_DB_HOST=mysql
-      - WORDPRESS_DB_PASSWORD=wp_password  # new DB password
-      - WORDPRESS_DB_USER=wp_user          # new DB user
-    links:
-      - mysql
-    restart: always
-```
-
-## Example deployment (using localhost)
-
-From the top level of the cloned repository, create host directories to preserve the container contents and create a basic Nginx configuration file.
+### Launch everything daemonized
 
 ```
-cd wordpress-nginx-docker/
-### optional: directories would be created by docker if not done manually
-mkdir -p certs/ certs-data/ logs/nginx/ mysql/ wordpress/
-cp nginx/wordpress.conf.example nginx/wordpress.conf
+docker-compose up -d
 ```
 
-Update `nginx/wordpress.conf` by changing the `server_name` value from `DOMAIN_NAME` to `127.0.0.1`.
+### Launch everything, but see the STDOUT of the containers in the console
 
-```console
-$ diff nginx/wordpress.conf.example nginx/wordpress.conf
-3c3
-<     server_name DOMAIN_NAME;
----
->     server_name 127.0.0.1;
+```
+docker-compose up
 ```
 
-Launch and daemonize the containers with `docker-compose up -d`
+Issuing a `ctrl-z` will safely disconnect from the console without terminating the running containers. Otherwise `ctrl-c` will disconnect and kill the containers.
 
-```console
-$ docker-compose up -d
-Creating mysql ... done
-Creating wordpress ... done
-Creating nginx     ... done
+### Staged approach
+
+The user may notice `Connection Error` output from the WordPress container as the database readies itself for connections. This can be eliminated by staging the deployment of the containers until each one has properly set up.
+
+```
+docker-compose up -d database
 ```
 
-### Initial Wordpress setup
+wait until the database completes it's setup. This can be observed by looking at the log output using `docker-compose logs database` and waiting for the **mysqld: ready for connections** message.
+
+```
+docker-compose up -d wordpress nginx
+```
+
+
+
+## <a name="site"></a>Running site
+
+### Initial WordPress setup
 
 Navigate your browser to [http://127.0.0.1](http://127.0.0.1) and follow the installation prompts
 
@@ -384,7 +410,91 @@ Navigate your browser to [http://127.0.0.1](http://127.0.0.1) and follow the ins
     <img width="80%" alt="View site" src="https://user-images.githubusercontent.com/5332509/44045891-f4c5f90c-9ef7-11e8-88e4-fc8cfb61ea7d.png">
     
     
-Once your site is running you can begin to create and publish any content you'd like in your Wordpress instance.
+Once your site is running you can begin to create and publish any content you'd like in your WordPress instance.
+
+## <a name="stop-and-remove"></a>Stop and remove contaiers
+
+Because `docker-compose.yml` was used to define the container relationships it can also be used to stop and remove the containers from the host they are running on.
+
+Stop and remove containers:
+
+```console
+$ cd wordpress-nginx-docker
+$ docker-compose stop
+Stopping nginx     ... done
+Stopping wordpress ... done
+Stopping mysql     ... done
+$ docker-compose rm -f
+Going to remove nginx, wordpress, mysql
+Removing nginx     ... done
+Removing wordpress ... done
+Removing mysql     ... done
+```
+
+Removing all related directories:
+
+```console
+$ rm -rf certs/ certs-data/ logs/ mysql/ wordpress/
+```
+
+A script named `stop-and-remove.sh` has been provided to run these commands for you. See an example [here](CONSOLE.md/#stop-and-remove). 
+
+## <a name="opt_config"></a>Optional Configuration
+
+### Environment Variables
+
+WordPress environment variables. See the [official image](https://hub.docker.com/_/wordpress/) for additional information.
+
+- `WORDPRESS_DB_NAME`: Name of database used for WordPress in MariaDB
+- `WORDPRESS_TABLE_PREFIX`: Prefix appended to all WordPress related tables in the `WORDPRESS_DB_NAME` database
+- `WORDPRESS_DB_HOST `: Hostname of the database server / container
+- `WORDPRESS_DB_PASSWORD `: Database password for the `WORDPRESS_DB_USER`. By default 'root' is the `WORDPRESS_DB_USER`.
+
+```yaml
+    environment:
+      - WORDPRESS_DB_NAME=${WORDPRESS_DB_NAME:-wordpress}
+      - WORDPRESS_TABLE_PREFIX=${WORDPRESS_TABLE_PREFIX:-wp_}
+      - WORDPRESS_DB_HOST=${WORDPRESS_DB_HOST:-mysql}
+      - WORDPRESS_DB_USER=${WORDPRESS_DB_USER:-root}
+      - WORDPRESS_DB_PASSWORD=${WORDPRESS_DB_PASSWORD:-password}
+```
+
+MySQL environment variables.
+
+- If you've altered the `WORDPRESS_DB_PASSWORD` you should also set the `MYSQL_ROOT_PASSWORD ` to be the same as they will both be associated with the user 'root'.
+
+```yaml
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-password}
+      - MYSQL_USER=${MYSQL_USER:-root}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-password}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-wordpress}
+```
+
+### Non-root database user
+
+If you don't want 'root' as the `WORDPRESS_DB_USER`, then the configuration variables in `.env` can be updated in the following way.
+
+Example:
+
+```yaml
+# wordpress - wordpress:php7.3-fpm
+WORDPRESS_DB_NAME=wordpress
+WORDPRESS_TABLE_PREFIX=wp_
+WORDPRESS_DB_HOST=mysql
+WORDPRESS_DB_USER=wp_user          # new DB user
+WORDPRESS_DB_PASSWORD=wp_password. # new DB password
+
+# mariadb - mariadb:latest
+MYSQL_ROOT_PASSWORD=password
+MYSQL_USER=wp_user                 # same as WORDPRESS_DB_USER
+MYSQL_PASSWORD=wp_password         # same as WORDPRESS_DB_PASSWORD
+MYSQL_DATABASE=wordpress           # same as WORDPRESS_DB_NAME
+
+# nginx - nginx:latest
+NGINX_DEFAULT_CONF=./nginx/default.conf
+
+```
 
 
 ### Port Mapping
@@ -407,27 +517,11 @@ For the `wordpress` stanza, add
       - '9000:9000'
 ```
 
-## Clean up / Removal
 
-Because docker-compose was used to define the container relationships it can also be used to stop and remove the containers from the host they are running on.
+## Debugging tips
 
-Stop and remove containers:
+TODO:
 
-```console
-$ cd wordpress-nginx-docker
-$ docker-compose stop
-Stopping nginx     ... done
-Stopping wordpress ... done
-Stopping mysql     ... done
-$ docker-compose rm -f
-Going to remove nginx, wordpress, mysql
-Removing nginx     ... done
-Removing wordpress ... done
-Removing mysql     ... done
-```
+container logs
 
-Removing all related directories:
-
-```console
-$ rm -rf certs/ certs-data/ logs/ mysql/ wordpress/
-```
+permissions
