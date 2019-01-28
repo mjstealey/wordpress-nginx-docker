@@ -1,7 +1,7 @@
 server {
     listen      80;
     listen [::]:80;
-    server_name DOMAIN_NAME;
+    server_name FQDN_OR_IP;
 
     location / {
         rewrite ^ https://$host$request_uri? permanent;
@@ -16,8 +16,7 @@ server {
 server {
     listen      443           ssl http2;
     listen [::]:443           ssl http2;
-    server_name               DOMAIN_NAME www.DOMAIN_NAME;
-
+    server_name               FQDN_OR_IP www.FQDN_OR_IP;
 
     add_header                Strict-Transport-Security "max-age=31536000" always;
 
@@ -38,9 +37,9 @@ server {
     access_log /var/log/nginx/access.log;
     error_log /var/log/nginx/error.log;
 
-    ssl_certificate           /etc/letsencrypt/live/DOMAIN_NAME/fullchain.pem;
-    ssl_certificate_key       /etc/letsencrypt/live/DOMAIN_NAME/privkey.pem;
-    ssl_trusted_certificate   /etc/letsencrypt/live/DOMAIN_NAME/chain.pem;
+    ssl_certificate           /etc/letsencrypt/live/FQDN_OR_IP/fullchain.pem;
+    ssl_certificate_key       /etc/letsencrypt/live/FQDN_OR_IP/privkey.pem;
+    ssl_trusted_certificate   /etc/letsencrypt/live/FQDN_OR_IP/chain.pem;
 
     location / {
         try_files $uri $uri/ /index.php?$args;
