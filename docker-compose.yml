@@ -2,7 +2,7 @@ version: '3.6'
 services:
 
   wordpress:
-    image: wordpress:php7.3-fpm
+    image: wordpress:${WORDPRESS_VERSION:-php7.3-fpm}
     container_name: wordpress
     volumes:
       - ./wordpress:/var/www/html
@@ -11,35 +11,35 @@ services:
       - WORDPRESS_TABLE_PREFIX=${WORDPRESS_TABLE_PREFIX:-wp_}
       - WORDPRESS_DB_HOST=${WORDPRESS_DB_HOST:-mysql}
       - WORDPRESS_DB_USER=${WORDPRESS_DB_USER:-root}
-      - WORDPRESS_DB_PASSWORD=${PASSWORD:-password}
+      - WORDPRESS_DB_PASSWORD=${WORDPRESS_DB_PASSWORD:-password}
     depends_on:
       - mysql
     restart: always
 
   mysql:
-    image: mariadb:latest
+    image: mariadb:${MARIADB_VERSION:-latest}
     container_name: mysql
     volumes:
       - ./mysql:/var/lib/mysql
     environment:
-      - MYSQL_ROOT_PASSWORD=${PASSWORD:-password}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-password}
       - MYSQL_USER=${MYSQL_USER:-root}
-      - MYSQL_PASSWORD=${PASSWORD:-password}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-password}
       - MYSQL_DATABASE=${MYSQL_DATABASE:-wordpress}
     restart: always
 
   nginx:
-    image: nginx:latest
+    image: nginx:${NGINX_VERSION:-latest}
     container_name: nginx
     ports:
       - '80:80'
       - '443:443'
     volumes:
       - ${NGINX_DEFAULT_CONF:-./nginx/default.conf}:/etc/nginx/conf.d/default.conf
-      - ./logs/nginx:/var/log/nginx
-      - ./wordpress:/var/www/html
-      - ./certs:/etc/letsencrypt
-      - ./certs-data:/data/letsencrypt
+      - ${NGINX_LOG_DIR:-./logs/nginx}:/var/log/nginx
+      - ${WORDPRESS_DATA_DIR:-./wordpress}:/var/www/html
+      - ${SSL_CERTS_DIR:-./certs}:/etc/letsencrypt
+      - ${SSL_CERTS_DATA_DIR:-./certs-data}:/data/letsencrypt
     depends_on:
       - wordpress
     restart: always
