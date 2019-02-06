@@ -104,7 +104,7 @@ if [ -e ${REPO_DIR}/nginx/default.conf.waitforletsencrypt ]; then
 fi
 
 cd ${LE_DIR}
-rm -f ${REPO_DIR}/nginx/lets_encrypt.conf
+rm -f ${REPO_DIR}/lets_encrypt.conf
 
 echo "INFO: update the nginx/default.conf file"
 echo "-  4:   server_name ${FQDN_OR_IP};"

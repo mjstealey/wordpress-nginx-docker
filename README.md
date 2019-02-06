@@ -14,16 +14,17 @@ This project is a docker compose installation of a single site WordPress instanc
 
 - [TL;DR](#tldr) - I don't want details and just want to run WordPress locally using http
 - [Setup and configuration](#setup) - environment and configuration setup options
+  - [.env_example](#dotenv) - environment variable declaration for docker-compose to use
   - [HTTP or HTTPS?](#http-or-https) - http or https (via Let's Encrypt) to serve your content
   - [SSL certificates](#ssl-certs) - secure socket layer encryption options
   - [Let's Encrypt initialization](#lets-encrypt) - use Let's Encrypt for SSL certificates
   - [Let's Encrypt renewal](#renew) - how to renew your Let's Encrypt certificates
-  - [.env](#dotenv) - variable declaration for docker-compose to use
 - [Deploy](#deploy) - deploying your WordPress site
 - [Running site](#site) - what to expect after you deploy
 - [Stop and remove](#stop-and-remove) - clear all files associated with running the site
 - [Optional configuration](#opt-config) - additional options for deploying your site
 - [Debugging tips](#debug) - basic tips for debugging your site when something goes wrong
+- [Example deployment](MJSTEALEY.md) - full example deployment to [https://mjstealey.com/](https://mjstealey.com/)
 
 ## <a name="tldr"></a>TL;DR
 
@@ -39,6 +40,47 @@ After a few moments you should see your site running at [http://127.0.0.1](http:
 Further details available [here](CONSOLE.md/#tldr).
 
 ## <a name="setup"></a>Setup and configuration
+
+### <a name="dotenv"></a>.env
+
+A `.env_example` file has been included to more easily set docker-compose variables without having to modify the docker-compose.yml file itself.
+
+Default values have been provided as a means of getting up and running quickly for testing purposes. It is up to the user to modify these to best suit their deployment preferences.
+
+Create a file named `.env` from the `.env_example` file and adjust to suit your deployment
+
+```
+cp .env_exmaple .env
+```
+
+Example `.env` file (default values):
+
+```env
+# wordpress - wordpress:php7.3-fpm
+WORDPRESS_VERSION=php7.3-fpm
+WORDPRESS_DB_NAME=wordpress
+WORDPRESS_TABLE_PREFIX=wp_
+WORDPRESS_DB_HOST=mysql
+WORDPRESS_DB_USER=root
+WORDPRESS_DB_PASSWORD=password
+
+# mariadb - mariadb:latest
+MARIADB_VERSION=latest
+MYSQL_ROOT_PASSWORD=password
+MYSQL_USER=root
+MYSQL_PASSWORD=password
+MYSQL_DATABASE=wordpress
+
+# nginx - nginx:latest
+NGINX_VERSION=latest
+
+# volumes on host
+NGINX_CONF_DIR=./nginx
+NGINX_LOG_DIR=./logs/nginx
+WORDPRESS_DATA_DIR=./wordpress
+SSL_CERTS_DIR=./certs
+SSL_CERTS_DATA_DIR=./certs-data
+```
 
 ### Create directories on host
 
@@ -324,32 +366,6 @@ Killing nginx ... done
 
 And that's it!
 
-### <a name="dotenv"></a>.env
-
-A `.env` file has been included to more easily set docker-compose variables without having to modify the docker-compose.yml file itself.
-
-Default values have been provided as a means of getting up and running quickly for testing purposes. It is up to the user to modify these to best suit their deployment preferences.
-
-Example `.env` file:
-
-```env
-# wordpress - wordpress:php7.3-fpm
-WORDPRESS_DB_NAME=wordpress
-WORDPRESS_TABLE_PREFIX=wp_
-WORDPRESS_DB_HOST=mysql
-WORDPRESS_DB_USER=root
-WORDPRESS_DB_PASSWORD=password
-
-# mariadb - mariadb:latest
-MYSQL_ROOT_PASSWORD=password
-MYSQL_USER=root
-MYSQL_PASSWORD=password
-MYSQL_DATABASE=wordpress
-
-# nginx - nginx:latest
-NGINX_DEFAULT_CONF=./nginx/default.conf
-```
-
 ## <a name="deploy"></a>Deploy
 
 Once configuration has been completed deployment is just a matter of invoking the docker-compose command. Depending on the output you want to see you can choose to daemonize the launching of the containers with `-d`
@@ -494,6 +510,11 @@ MYSQL_DATABASE=wordpress           # same as WORDPRESS_DB_NAME
 # nginx - nginx:latest
 NGINX_DEFAULT_CONF=./nginx/default.conf
 
+# volumes on host
+NGINX_LOG_DIR=./logs/nginx
+WORDPRESS_DATA_DIR=./wordpress
+SSL_CERTS_DIR=./certs
+SSL_CERTS_DATA_DIR=./certs-data
 ```
 
 
