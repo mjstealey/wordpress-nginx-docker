@@ -1,9 +1,33 @@
 #!/usr/bin/env bash
 
-LE_DIR=$(pwd)
+# check to see where the script is being run from and set local variables
+if [ -f .env ]; then
+  echo "INFO: running from top level of repository"
+  source .env
+  LE_DIR=$(pwd)/letsencrypt
+else
+  if [ ! -f ../.env ]; then
+    echo "ERROR: Could not find the .env file?"
+    exit 1;
+  fi
+  echo "INFO: running from the letsencrypt directory"
+  source ../.env
+  LE_DIR=$(pwd)
+  cd ../
+fi
 REPO_DIR=$(dirname ${LE_DIR})
-CERTS=${REPO_DIR}/certs
-CERTS_DATA=${REPO_DIR}/certs-data
+
+# get full directory path
+if [ $(dirname ${SSL_CERTS_DIR}) = '.' ]; then
+  CERTS=$REPO_DIR${SSL_CERTS_DIR:1}
+else
+  CERTS=${SSL_CERTS_DIR}
+fi
+if [ $(dirname ${SSL_CERTS_DATA_DIR}) = '.' ]; then
+  CERTS_DATA=$REPO_DIR${SSL_CERTS_DATA_DIR:1}
+else
+  CERTS_DATA=${SSL_CERTS_DATA_DIR}
+fi
 
 # FQDN_OR_IP should not include prefix of www.
 if [ "$#" -ne 1 ]; then

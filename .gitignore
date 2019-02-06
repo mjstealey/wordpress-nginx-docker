@@ -1,6 +1,10 @@
+.env*
 .idea/
 certs/
 certs-data/
 logs/
+nginx/
 mysql/
 wordpress/
+!.env_example
+!nginx/default*
