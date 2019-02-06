@@ -176,31 +176,31 @@ Two scripts have been provided to help automate the Let's Encrypt interactions n
 
 1. modify line 95 of `letsencyrpt/letsencrypt-init.sh`
 
-  From:
-  
-  ```bash
-  95.    -d ${FQDN_OR_IP} -d www.${FQDN_OR_IP}
-  ```
-  
-  To:
-  
-  ```bash
-  95.    -d ${FQDN_OR_IP}
-  ```
+	From:
+
+	```bash
+	95.    -d ${FQDN_OR_IP} -d www.${FQDN_OR_IP}
+	```
+
+	To:
+
+	```bash
+	95.    -d ${FQDN_OR_IP}
+	```
   
 2. modify line 19 of `nginx/default.conf`
-  
-  From:
-  
-  ```nginx
-  19.    server_name               FQDN_OR_IP www.FQDN_OR_IP;
-  ```
-  
-  To:
 
-  ```nginx
-  19.    server_name               FQDN_OR_IP;
-  ```
+	From:
+
+	```nginx
+	19.    server_name               FQDN_OR_IP www.FQDN_OR_IP;
+	```
+
+	To:
+
+	```nginx
+	19.    server_name               FQDN_OR_IP;
+	```
 
 **NOTE**: these scripts can be run from the top of the repository or the `letsencrypt/` directory. It is important to run the initialization script BEFORE deploying your site.
 
