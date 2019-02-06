@@ -17,7 +17,7 @@ This project is a docker compose installation of a single site WordPress instanc
   - [.env_example](#dotenv) - environment variable declaration for docker-compose to use
   - [HTTP or HTTPS?](#http-or-https) - http or https (via Let's Encrypt) to serve your content
   - [SSL certificates](#ssl-certs) - secure socket layer encryption options
-  - [Let's Encrypt initialization](#lets-encrypt) - use Let's Encrypt for SSL certificates
+  - [Let's Encrypt initialization](#lets-encrypt) - use Let's Encrypt for SSL certificates (Important [NOTE](#dns_reg) regarding DNS registration assumptions)
   - [Let's Encrypt renewal](#renew) - how to renew your Let's Encrypt certificates
 - [Deploy](#deploy) - deploying your WordPress site
 - [Running site](#site) - what to expect after you deploy
@@ -172,59 +172,98 @@ Two scripts have been provided to help automate the Let's Encrypt interactions n
 - `letsencrypt-init.sh` - run once when first setting up your site to obtain certificates
 - `letsencrypt-renew.sh` - run as needed to renew your previously issued certificate
 
+<a name="dns_reg"></a>**NOTE**: there is an assumption that both the `domain.name` and `www.domain.name` are valid DNS endpoints. If this is not the case, you will need to edit two files prior to running the `letencrypt-init.sh` script.
 
-**NOTE**: these scripts should be run from within the `letsencrypt/` directory. It is important to run the initialization script BEFORE deploying your site.
+1. modify line 95 of `letsencyrpt/letsencrypt-init.sh`
+
+  From:
+  
+  ```bash
+  95.    -d ${FQDN_OR_IP} -d www.${FQDN_OR_IP}
+  ```
+  
+  To:
+  
+  ```bash
+  95.    -d ${FQDN_OR_IP}
+  ```
+  
+2. modify line 19 of `nginx/default.conf`
+  
+  From:
+  
+  ```nginx
+  19.    server_name               FQDN_OR_IP www.FQDN_OR_IP;
+  ```
+  
+  To:
+
+  ```nginx
+  19.    server_name               FQDN_OR_IP;
+  ```
+
+**NOTE**: these scripts can be run from the top of the repository or the `letsencrypt/` directory. It is important to run the initialization script BEFORE deploying your site.
 
 **USAGE**: `./letsencrypt-init.sh FQDN_OR_IP`, where `FQDN_OR_IP` is the publicly registered domain name of your host to generate your initial certificate. (Information about updating your Let's Encrypt certificate can be found further down in this document)
 
 ```console
-$ cd letsencrypt/
-$ ./letsencrypt-init.sh example.com
+$ letsencrypt/letsencrypt-init.sh mjstealey.com
+INFO: running from top level of repository
 mysql uses an image, skipping
 wordpress uses an image, skipping
 nginx uses an image, skipping
-Creating mysql ...
+Creating network "wordpress-nginx-docker_default" with the default driver
 Creating mysql ... done
-Creating wordpress ...
 Creating wordpress ... done
-Creating nginx ...
-Creating nginx ... done
-Reloading nginx: nginx.
+Creating nginx     ... done
+Unable to find image 'certbot/certbot:latest' locally
+latest: Pulling from certbot/certbot
+407ea412d82c: Pull complete
+4aa45741b61e: Pull complete
+2dc54ee2e6f3: Pull complete
+4d994f02f15e: Pull complete
+c038ebf87349: Pull complete
+f161330ec17b: Pull complete
+2e3bb278a0c8: Pull complete
+536d789f6905: Pull complete
+3679aad0a0e7: Pull complete
+2e6a120db733: Pull complete
+Digest: sha256:a12831b58d3add421f4e42df2def867cdfb5cedae5f559574e2a706349d58639
+Status: Downloaded newer image for certbot/certbot:latest
 Saving debug log to /var/log/letsencrypt/letsencrypt.log
 Plugins selected: Authenticator webroot, Installer None
 Enter email address (used for urgent renewal and security notices) (Enter 'c' to
 cancel): mjstealey@gmail.com
 
--------------------------------------------------------------------------------
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 Please read the Terms of Service at
-https://letsencrypt.org/documents/LE-SA-v1.1.1-August-1-2016.pdf. You must agree
-in order to register with the ACME server at
-https://acme-v01.api.letsencrypt.org/directory
--------------------------------------------------------------------------------
-(A)gree/(C)ancel: a
+https://letsencrypt.org/documents/LE-SA-v1.2-November-15-2017.pdf. You must
+agree in order to register with the ACME server at
+https://acme-v02.api.letsencrypt.org/directory
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+(A)gree/(C)ancel: A
 
--------------------------------------------------------------------------------
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 Would you be willing to share your email address with the Electronic Frontier
 Foundation, a founding partner of the Let's Encrypt project and the non-profit
-organization that develops Certbot? We'd like to send you email about EFF and
-our work to encrypt the web, protect its users and defend digital rights.
--------------------------------------------------------------------------------
-(Y)es/(N)o: y
+organization that develops Certbot? We'd like to send you email about our work
+encrypting the web, EFF news, campaigns, and ways to support digital freedom.
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+(Y)es/(N)o: Y
 Obtaining a new certificate
 Performing the following challenges:
-http-01 challenge for example.com
-http-01 challenge for www.example.com
+http-01 challenge for mjstealey.com
+http-01 challenge for www.mjstealey.com
 Using the webroot path /data/letsencrypt for all unmatched domains.
 Waiting for verification...
 Cleaning up challenges
 
 IMPORTANT NOTES:
-    ssl                       on;
  - Congratulations! Your certificate and chain have been saved at:
-   /etc/letsencrypt/live/example.com/fullchain.pem
+   /etc/letsencrypt/live/mjstealey.com/fullchain.pem
    Your key file has been saved at:
-   /etc/letsencrypt/live/example.com/privkey.pem
-   Your cert will expire on 2018-02-06. To obtain a new or tweaked
+   /etc/letsencrypt/live/mjstealey.com/privkey.pem
+   Your cert will expire on 2019-05-07. To obtain a new or tweaked
    version of this certificate in the future, simply run certbot
    again. To non-interactively renew *all* of your certificates, run
    "certbot renew"
@@ -245,12 +284,12 @@ Going to remove nginx, wordpress, mysql
 Removing nginx     ... done
 Removing wordpress ... done
 Removing mysql     ... done
-INFO: update the nginx/wordpress_ssl.conf file
--  4:   server_name example.com;
-- 19:   server_name               example.com www.example.com;
-- 46:   ssl_certificate           /etc/letsencrypt/live/example.com/fullchain.pem;
-- 47:   ssl_certificate_key       /etc/letsencrypt/live/example.com/privkey.pem;
-- 48:   ssl_trusted_certificate   /etc/letsencrypt/live/example.com/chain.pem;
+INFO: update the nginx/default.conf file
+-  4:   server_name mjstealey.com;
+- 19:   server_name               mjstealey.com www.mjstealey.com;
+- 40:   ssl_certificate           /etc/letsencrypt/live/mjstealey.com/fullchain.pem;
+- 41:   ssl_certificate_key       /etc/letsencrypt/live/mjstealey.com/privkey.pem;
+- 42:   ssl_trusted_certificate   /etc/letsencrypt/live/mjstealey.com/chain.pem;
 ```
 
 ### Bring your own
@@ -273,9 +312,9 @@ writing new private key to 'key.pem'
 INFO: update the nginx/wordpress_ssl.conf file
 -  4:   server_name localhost;
 - 19:   server_name               localhost www.localhost;
-- 46:   ssl_certificate           /etc/letsencrypt/live/localhost/cert.pem;
-- 47:   ssl_certificate_key       /etc/letsencrypt/live/localhost/privkey.pem;
-- 48:   #ssl_trusted_certificate   /etc/letsencrypt/live/FQDN_OR_IP/chain.pem; <-- COMMENT OUT OR REMOVE
+- 40:   ssl_certificate           /etc/letsencrypt/live/localhost/cert.pem;
+- 41:   ssl_certificate_key       /etc/letsencrypt/live/localhost/privkey.pem;
+- 42:   #ssl_trusted_certificate   /etc/letsencrypt/live/FQDN_OR_IP/chain.pem; <-- COMMENT OUT OR REMOVE
 ```
 
 ### <a name="renew"></a>Renew your Let's Encrypt certificate
@@ -288,20 +327,21 @@ What is the lifetime for Let’s Encrypt certificates? For how long are they val
 A script named [letsencrypt-renew.sh](letsencrypt/letsencrypt-renew.sh) has been provided to update your certificate as needed. This script can be run at any time along side of your already running site, and if the certificate is due for renewal, it will be renewed. If it is still valid or not yet close to the expiry date, then you'll see a `Cert not yet due for renewal` message such as the one below.
 
 ```console
-$ ./letsencrypt-renew.sh
+$ letsencrypt/letsencrypt-renew.sh
+INFO: running from top level of repository
 Saving debug log to /var/log/letsencrypt/letsencrypt.log
 
--------------------------------------------------------------------------------
-Processing /etc/letsencrypt/renewal/example.com.conf
--------------------------------------------------------------------------------
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Processing /etc/letsencrypt/renewal/mjstealey.com.conf
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 Cert not yet due for renewal
 
--------------------------------------------------------------------------------
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 The following certs are not due for renewal yet:
-  /etc/letsencrypt/live/example.com/fullchain.pem (skipped)
+  /etc/letsencrypt/live/mjstealey.com/fullchain.pem expires on 2019-05-07 (skipped)
 No renewals were attempted.
--------------------------------------------------------------------------------
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 Killing nginx ... done
 ```
 
@@ -330,7 +370,7 @@ renewing 30 days before expiration. See
 >Regards,
 >The Let's Encrypt Team
 
-Running the `letsencrypt-renew.sh` script during an active renewal period would renew the site's certificates assuming the site has remainined in good standing.
+Running the `letsencrypt-renew.sh` script during an active renewal period would renew the site's certificates assuming the site has remained in good standing.
 
 Example renewal:
 
