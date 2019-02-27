@@ -50,7 +50,7 @@ Default values have been provided as a means of getting up and running quickly f
 Create a file named `.env` from the `.env_example` file and adjust to suit your deployment
 
 ```
-cp .env_exmaple .env
+cp .env_example .env
 ```
 
 Example `.env` file (default values):
