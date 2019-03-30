@@ -43,3 +43,6 @@ services:
     depends_on:
       - wordpress
     restart: always
+
+  certbot:
+    image: certbot/certbot
