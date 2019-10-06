@@ -43,3 +43,11 @@ services:
     depends_on:
       - wordpress
     restart: always
+
+  adminer:
+    image: adminer
+    restart: always
+    links:
+      - mysql
+    ports:
+      - 8080:8080
