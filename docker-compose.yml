@@ -5,6 +5,7 @@ services:
     image: wordpress:${WORDPRESS_VERSION:-php7.3-fpm}
     container_name: wordpress
     volumes:
+      - ./config/php.conf.ini:/usr/local/etc/php/conf.d/conf.ini
       - ./wordpress:/var/www/html
     environment:
       - WORDPRESS_DB_NAME=${WORDPRESS_DB_NAME:-wordpress}
