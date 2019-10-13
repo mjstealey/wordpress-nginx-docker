@@ -594,6 +594,8 @@ please add the following to the `mysql` stanza:
 
 This is partly because Windows (or to be precise NTFS) dosen't support Asyncronous I/Os (see [this](https://github.com/docker-library/mariadb/issues/95) for more details).
 
+Don't forget to `docker-compose stop` AND to manually remove everything under `./mysql/` before retrying.
+
 TODO:
 
 container logs
