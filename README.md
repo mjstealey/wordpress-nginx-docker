@@ -581,6 +581,19 @@ For the `wordpress` stanza, add
 
 ## <a name="debug"></a>Debugging tips
 
+### On Windows
+
+If you encounter an error on the mysql container like this:
+```
+[ERROR] Plugin ‘InnoDB’ registration as a STORAGE ENGINE failed.
+[ERROR] Unknown/unsupported storage engine: InnoDB
+```
+please add the following to the `mysql` stanza:
+
+```command: --innodb-flush-method=fsync --innodb-use-native-aio=0```
+
+This is partly because Windows (or to be precise NTFS) dosen't support Asyncronous I/Os (see [this](https://github.com/docker-library/mariadb/issues/95) for more details).
+
 TODO:
 
 container logs
