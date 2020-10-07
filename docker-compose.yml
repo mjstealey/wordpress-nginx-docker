@@ -6,6 +6,7 @@ services:
     container_name: wordpress
     volumes:
       - ./config/php.conf.ini:/usr/local/etc/php/conf.d/conf.ini
+      - ./config/php-conf.ini:/usr/local/etc/php/conf.d/php-conf.ini
       - ./wordpress:/var/www/html
     environment:
       - WORDPRESS_DB_NAME=${WORDPRESS_DB_NAME:-wordpress}
