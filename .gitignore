@@ -15,3 +15,5 @@ wordpress/**/*
 !logs/nginx/.keep
 !mysql/.keep
 !wordpress/.keep
+
+.DS_Store
