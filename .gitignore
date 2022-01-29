@@ -1,10 +1,15 @@
-.env*
-.idea/
-certs/
-certs-data/
-logs/
-nginx/
-mysql/
-wordpress/
-!.env_example
-!nginx/default*
+# environment file
+.env
+
+# wordpress files
+wordpress
+
+# mysql files
+dbdata
+
+# logging output
+logs
+
+# macOS and IDE
+.DS_Store
+.idea

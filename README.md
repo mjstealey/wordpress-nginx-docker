@@ -1,603 +1,381 @@
-# WordPress: with Nginx web server in Docker
+# WordPress (FPM Edition) - Docker
 
-This project is a docker compose installation of a single site WordPress instance using Nginx as the web server and MariaDB as the database.
+Notes on deploying a single site [WordPress FPM Edition](https://hub.docker.com/_/wordpress/) instance as a docker deployment orchestrated by Docker Compose.
 
-- Let's Encrypt SSL enabled option using [https://hub.docker.com/r/certbot/certbot/](https://hub.docker.com/r/certbot/certbot/)
-- Work inspired by: [Dockerizing WordPress with Nginx and PHP-FPM on Ubuntu 16.04](https://www.howtoforge.com/tutorial/dockerizing-wordpress-with-nginx-and-php-fpm/)
+- Use the FPM version of WordPress (v5-fpm)
+- Use MySQL as the database (v8)
+- Use Nginx as the web server (v1)
+- Use Adminer as the database management tool (v4)
+- Include self-signed SSL certificate ([Let's Encrypt localhost](https://letsencrypt.org/docs/certificates-for-localhost/) format)
 
-**What is WordPress?** 
+**DISCLAIMER: The code herein may not be up to date nor compliant with the most recent package and/or security notices. The frequency at which this code is reviewed and updated is based solely on the lifecycle of the project for which it was written to support, and is not actively maintained outside of that scope. Use at your own risk.**
 
-- WordPress is open source software you can use to create a beautiful website, blog, or app.
-- More information at [https://wordpress.org](https://wordpress.org)
+## Table of contents
 
-## Table of Contents
+- [Overview](#overview)
+    - [Host requirements](#reqts)
+- [Configuration](#config)
+- [Deploy](#deploy)
+- [Adminer](#adminer)
+- [Teardown](#teardown)
+- [References](#references)
+- [Notes](#notes)
 
-- [TL;DR](#tldr) - I don't want details and just want to run WordPress locally using http
-- [Setup and configuration](#setup) - environment and configuration setup options
-  - [.env_example](#dotenv) - environment variable declaration for docker-compose to use
-  - [HTTP or HTTPS?](#http-or-https) - http or https (via Let's Encrypt) to serve your content
-  - [SSL certificates](#ssl-certs) - secure socket layer encryption options
-  - [Let's Encrypt initialization](#lets-encrypt) - use Let's Encrypt for SSL certificates (Important [NOTE](#dns_reg) regarding DNS registration assumptions)
-  - [Let's Encrypt renewal](#renew) - how to renew your Let's Encrypt certificates
-- [Deploy](#deploy) - deploying your WordPress site
-- [Running site](#site) - what to expect after you deploy
-- [Stop and remove](#stop-and-remove) - clear all files associated with running the site
-- [Optional configuration](#opt-config) - additional options for deploying your site
-- [Debugging tips](#debug) - basic tips for debugging your site when something goes wrong
-- [Example deployment](MJSTEALEY.md) - full example deployment to [https://mjstealey.com/](https://mjstealey.com/)
+## <a name="overview"></a>Overview
 
-## <a name="tldr"></a>TL;DR
+WordPress is a free and open source blogging tool and a content management system (CMS) based on PHP and MySQL, which runs on a web hosting service. Features include a plugin architecture and a template system.
 
-**NOTE**: assumes you are starting from the top level of the cloned repository (`PWD == ./wordpress-nginx-docker`)
+This variant contains PHP-FPM, which is a FastCGI implementation for PHP. 
 
-```
-mkdir -p certs/ certs-data/ logs/nginx/ mysql/ wordpress/
-docker-compose up -d
-```
+- See the [PHP-FPM website](https://php-fpm.org/) for more information about PHP-FPM.
+- In order to use this image variant, some kind of reverse proxy (such as NGINX, Apache, or other tool which speaks the FastCGI protocol) will be required.
 
-After a few moments you should see your site running at [http://127.0.0.1](http://127.0.0.1) ready to be configured.
+### <a name="reqts"></a>Host requirements
 
-Further details available [here](CONSOLE.md/#tldr).
+Both Docker and Docker Compose are required on the host to run this code
 
-## <a name="setup"></a>Setup and configuration
+- Install Docker Engine: [https://docs.docker.com/engine/install/](https://docs.docker.com/engine/install/)
+- Install Docker Compose: [https://docs.docker.com/compose/install/](https://docs.docker.com/compose/install/)
 
-### <a name="dotenv"></a>.env
+## <a name="config"></a>Configuration
 
-A `.env_example` file has been included to more easily set docker-compose variables without having to modify the docker-compose.yml file itself.
+Copy the `env.template` file as `.env` and populate according to your environment
 
-Default values have been provided as a means of getting up and running quickly for testing purposes. It is up to the user to modify these to best suit their deployment preferences.
+```ini
+# docker-compose environment file
+#
+# When you set the same environment variable in multiple files,
+# here’s the priority used by Compose to choose which value to use:
+#
+#  1. Compose file
+#  2. Shell environment variables
+#  3. Environment file
+#  4. Dockerfile
+#  5. Variable is not defined
 
-Create a file named `.env` from the `.env_example` file and adjust to suit your deployment
+# Wordpress Settings
+export WORDPRESS_LOCAL_HOME=./wordpress
+export WORDPRESS_UPLOADS_CONFIG=./config/uploads.ini
+export WORDPRESS_DB_HOST=database:3306
+export WORDPRESS_DB_NAME=wordpress
+export WORDPRESS_DB_USER=wordpress
+export WORDPRESS_DB_PASSWORD=password123!
 
-```
-cp .env_example .env
-```
+# MySQL Settings
+export MYSQL_LOCAL_HOME=./dbdata
+export MYSQL_DATABASE=${WORDPRESS_DB_NAME}
+export MYSQL_USER=${WORDPRESS_DB_USER}
+export MYSQL_PASSWORD=${WORDPRESS_DB_PASSWORD}
+export MYSQL_ROOT_PASSWORD=rootpassword123!
 
-Example `.env` file (default values):
+# Nginx Settings
+export NGINX_CONF=./nginx/default.conf
+export NGINX_SSL_CERTS=./ssl
+export NGINX_LOGS=./logs/nginx
 
-```env
-# wordpress - wordpress:php7.3-fpm
-WORDPRESS_VERSION=php7.3-fpm
-WORDPRESS_DB_NAME=wordpress
-WORDPRESS_TABLE_PREFIX=wp_
-WORDPRESS_DB_HOST=mysql
-WORDPRESS_DB_USER=root
-WORDPRESS_DB_PASSWORD=password
-
-# mariadb - mariadb:latest
-MARIADB_VERSION=latest
-MYSQL_ROOT_PASSWORD=password
-MYSQL_USER=root
-MYSQL_PASSWORD=password
-MYSQL_DATABASE=wordpress
-
-# nginx - nginx:latest
-NGINX_VERSION=latest
-
-# volumes on host
-NGINX_CONF_DIR=./nginx
-NGINX_LOG_DIR=./logs/nginx
-WORDPRESS_DATA_DIR=./wordpress
-SSL_CERTS_DIR=./certs
-SSL_CERTS_DATA_DIR=./certs-data
+# User Settings
+# TBD
 ```
 
-### Create directories on host
+Modify `nginx/default.conf` and replace `$host` and `8443` with your **Domain Name** and exposed **HTTPS Port** throughout the file
 
-Directories are created on the host and volume mounted to the docker containers. This allows the user to persist data beyond the scope of the container itself. If volumes are not persisted to the host the user runs the risk of losing their data when the container is updated or removed.
+```conf
+# default.conf
+# redirect to HTTPS
+server {
+    listen 80;
+    listen [::]:80;
+    server_name $host;
+    location / {
+        # update port as needed for host mapped https
+        rewrite ^ https://$host:8443$request_uri? permanent;
+    }
+}
 
-- **mysql**: The database files for MariaDB
-- **wordpress**: The WordPress media files
-- **logs/nginx**: The Nginx log files (error.log, access.log)
-- **certs**: SSL certificate files (LetsEncrypt)
-- **certs-data**: SSL challenge/response area (LetsEncrypt)
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name $host;
+    index index.php index.html index.htm;
+    root /var/www/html;
+    server_tokens off;
+    client_max_body_size 75M;
 
-From the top level of the cloned repository, create the directories that will be used for managing the data on the host.
+    # update ssl files as required by your deployment
+    ssl_certificate /etc/ssl/fullchain.pem;
+    ssl_certificate_key /etc/ssl/privkey.pem;
 
-```
-mkdir -p certs/ certs-data/ logs/nginx/ mysql/ wordpress/
-```
+    # logging
+    access_log /var/log/nginx/wordpress.access.log;
+    error_log /var/log/nginx/wordpress.error.log;
 
-**NOTE**: for permissions reasons it is important for the user to create these directories prior to issuing the docker-compose command. If the directories do not already exist when the containers are started, the directories will be created at start time and will be owned by the root user of the container process. This can lead to access denied permission issues.
+    # some security headers ( optional )
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    add_header Content-Security-Policy "default-src * data: 'unsafe-eval' 'unsafe-inline'" always;
 
-### <a name="http-or-https"></a>HTTP or HTTPS?
+    location / {
+        try_files $uri $uri/ /index.php$is_args$args;
+    }
 
-There are three files in the `nginx` directory, and which one you use depends on whether you want to serve your site using HTTP or HTTPS.
+    location ~ \.php$ {
+        try_files $uri = 404;
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        fastcgi_pass wordpress:9000;
+        fastcgi_index index.php;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param PATH_INFO $fastcgi_path_info;
+    }
 
-Files in the `nginx` directory:
+    location ~ /\.ht {
+        deny all;
+    }
 
-- `default.conf` - Example configuration for running locally on port 80 using http.
-- `default_http.conf.template` - Example configuration for running at a user defined `FQDN_OR_IP` on port 80 using http.
-- `default_https.conf.template` - Example configuration for running at a user defined `FQDN_OR_IP` on port 443 using https.
+    location = /favicon.ico {
+        log_not_found off; access_log off;
+    }
 
-**NOTE**: `FQDN_OR_IP` is short for Fully Qualified Domain Name or IP Address, and should be DNS resolvable if using a hostname.
+    location = /favicon.svg {
+        log_not_found off; access_log off;
+    }
 
-Both of these are protocols for transferring the information of a particular website between the Web Server and Web Browser. But what’s difference between these two? Well, extra "s" is present in https and that makes it secure! 
+    location = /robots.txt {
+        log_not_found off; access_log off; allow all;
+    }
 
-A very short and concise difference between http and https is that https is much more secure compared to http. https = http + cryptographic protocols.
-
-Main differences between HTTP and HTTPS
-
-- In HTTP, URL begins with [http://]() whereas an HTTPS URL starts with [https://]()
-- HTTP uses port number `80` for communication and HTTPS uses `443`
-- HTTP is considered to be unsecured and HTTPS is secure
-- HTTP Works at Application Layer and HTTPS works at Transport Layer
-- In HTTP, Encryption is absent whereas Encryption is present in HTTPS
-- HTTP does not require any certificates and HTTPS needs SSL Certificates (signed, unsigned or self generated)
-
-### HTTP
-
-If you plan to run your WordPress site over http on port 80, then do the following.
-
-1. Replace the contents of `nginx/default.conf` with the `nginx/default_http.conf.template` file 
-2. Update the `FQDN_OR_IP` in `nginx/default.conf` to be that of your domain
-3. Run `$ docker-compose up -d` and allow a few moments for the containers to set themselves up
-4. Navigate to [http://FQDN_OR_IP]() in a browser where `FQDN_OR_IP` is the hostname or IP Address of your site
-
-### HTTPS
-
-If you plan to run your WordPress site over https on port 443, then do the following.
-
-1. Replace the contents of `nginx/default.conf` with the `nginx/default_https.conf.template` file. 
-2. Update the `FQDN_OR_IP` in `nginx/default.conf` to be that of your domain (occurs in many places)
-3. Review the options for SSL certificates below to complete your configuration
-
-## <a name="ssl-certs"></a>SSL Certificates
-
-**What are SSL Certificates?**
-
-SSL Certificates are small data files that digitally bind a cryptographic key to an organization’s details. When installed on a web server, it activates the padlock and the https protocol and allows secure connections from a web server to a browser. Typically, SSL is used to secure credit card transactions, data transfer and logins, and more recently is becoming the norm when securing browsing of social media sites.
-
-SSL Certificates bind together:
-
-- A domain name, server name or hostname.
-- An organizational identity (i.e. company name) and location.
-
-Three options for obtaining/installing SSL Certificates are outlined below.
-
-1. Let's Encrypt - free SSL Certificate service
-2. Bring your own - you already have a valid certificate
-3. Self signed - you can generate your own self signed certificates to use for testing
-
-### <a name="lets-encrypt"></a>Let's Encrypt
-
-Let’s Encrypt is a free, automated, and open certificate authority (CA), run for the public’s benefit. It is a service provided by the Internet Security Research Group (ISRG).
-
-We give people the digital certificates they need in order to enable HTTPS (SSL/TLS) for websites, for free, in the most user-friendly way we can. We do this because we want to create a more secure and privacy-respecting Web.
-
-- If you plan on using SSL certificates from [Let's Encrypt](https://letsencrypt.org) it is important that your public domain is already DNS registered and publicly reachable.
-
-Two scripts have been provided to help automate the Let's Encrypt interactions needed to obtain and maintain your certificates.
-
-- `letsencrypt-init.sh` - run once when first setting up your site to obtain certificates
-- `letsencrypt-renew.sh` - run as needed to renew your previously issued certificate
-
-<a name="dns_reg"></a>**NOTE**: there is an assumption that both the `domain.name` and `www.domain.name` are valid DNS endpoints. If this is not the case, you will need to edit two files prior to running the `letencrypt-init.sh` script.
-
-1. modify line 95 of `letsencyrpt/letsencrypt-init.sh`
-
-	From:
-
-	```bash
-	95.    -d ${FQDN_OR_IP} -d www.${FQDN_OR_IP}
-	```
-
-	To:
-
-	```bash
-	95.    -d ${FQDN_OR_IP}
-	```
-  
-2. modify line 19 of `nginx/default.conf`
-
-	From:
-
-	```nginx
-	19.    server_name               FQDN_OR_IP www.FQDN_OR_IP;
-	```
-
-	To:
-
-	```nginx
-	19.    server_name               FQDN_OR_IP;
-	```
-
-**NOTE**: these scripts can be run from the top of the repository or the `letsencrypt/` directory. It is important to run the initialization script BEFORE deploying your site.
-
-**USAGE**: `./letsencrypt-init.sh FQDN_OR_IP`, where `FQDN_OR_IP` is the publicly registered domain name of your host to generate your initial certificate. (Information about updating your Let's Encrypt certificate can be found further down in this document)
-
-```console
-$ letsencrypt/letsencrypt-init.sh mjstealey.com
-INFO: running from top level of repository
-mysql uses an image, skipping
-wordpress uses an image, skipping
-nginx uses an image, skipping
-Creating network "wordpress-nginx-docker_default" with the default driver
-Creating mysql ... done
-Creating wordpress ... done
-Creating nginx     ... done
-Unable to find image 'certbot/certbot:latest' locally
-latest: Pulling from certbot/certbot
-407ea412d82c: Pull complete
-4aa45741b61e: Pull complete
-2dc54ee2e6f3: Pull complete
-4d994f02f15e: Pull complete
-c038ebf87349: Pull complete
-f161330ec17b: Pull complete
-2e3bb278a0c8: Pull complete
-536d789f6905: Pull complete
-3679aad0a0e7: Pull complete
-2e6a120db733: Pull complete
-Digest: sha256:a12831b58d3add421f4e42df2def867cdfb5cedae5f559574e2a706349d58639
-Status: Downloaded newer image for certbot/certbot:latest
-Saving debug log to /var/log/letsencrypt/letsencrypt.log
-Plugins selected: Authenticator webroot, Installer None
-Enter email address (used for urgent renewal and security notices) (Enter 'c' to
-cancel): mjstealey@gmail.com
-
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-Please read the Terms of Service at
-https://letsencrypt.org/documents/LE-SA-v1.2-November-15-2017.pdf. You must
-agree in order to register with the ACME server at
-https://acme-v02.api.letsencrypt.org/directory
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-(A)gree/(C)ancel: A
-
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-Would you be willing to share your email address with the Electronic Frontier
-Foundation, a founding partner of the Let's Encrypt project and the non-profit
-organization that develops Certbot? We'd like to send you email about our work
-encrypting the web, EFF news, campaigns, and ways to support digital freedom.
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-(Y)es/(N)o: Y
-Obtaining a new certificate
-Performing the following challenges:
-http-01 challenge for mjstealey.com
-http-01 challenge for www.mjstealey.com
-Using the webroot path /data/letsencrypt for all unmatched domains.
-Waiting for verification...
-Cleaning up challenges
-
-IMPORTANT NOTES:
- - Congratulations! Your certificate and chain have been saved at:
-   /etc/letsencrypt/live/mjstealey.com/fullchain.pem
-   Your key file has been saved at:
-   /etc/letsencrypt/live/mjstealey.com/privkey.pem
-   Your cert will expire on 2019-05-07. To obtain a new or tweaked
-   version of this certificate in the future, simply run certbot
-   again. To non-interactively renew *all* of your certificates, run
-   "certbot renew"
- - Your account credentials have been saved in your Certbot
-   configuration directory at /etc/letsencrypt. You should make a
-   secure backup of this folder now. This configuration directory will
-   also contain certificates and private keys obtained by Certbot so
-   making regular backups of this folder is ideal.
- - If you like Certbot, please consider supporting our work by:
-
-   Donating to ISRG / Let's Encrypt:   https://letsencrypt.org/donate
-   Donating to EFF:                    https://eff.org/donate-le
-
-Stopping nginx     ... done
-Stopping wordpress ... done
-Stopping mysql     ... done
-Going to remove nginx, wordpress, mysql
-Removing nginx     ... done
-Removing wordpress ... done
-Removing mysql     ... done
-INFO: update the nginx/default.conf file
--  4:   server_name mjstealey.com;
-- 19:   server_name               mjstealey.com www.mjstealey.com;
-- 40:   ssl_certificate           /etc/letsencrypt/live/mjstealey.com/fullchain.pem;
-- 41:   ssl_certificate_key       /etc/letsencrypt/live/mjstealey.com/privkey.pem;
-- 42:   ssl_trusted_certificate   /etc/letsencrypt/live/mjstealey.com/chain.pem;
+    location ~* \.(css|gif|ico|jpeg|jpg|js|png)$ {
+        expires max;
+        log_not_found off;
+    }
+}
 ```
 
-### Bring your own
+Modify the `config/uploads.ini` file if the preset values are not to your liking (defaults shown below)
 
-If you plan to use pre-existing certificates you will need to update the `nginx/default.conf` file with the appropriate settings to the kind of certificates you have.
-	
-### Self signed
-
-**USAGE**: `./self-signed-init.sh FQDN_OR_IP`, where `FQDN_OR_IP` is the `CN` you want to assign to the host (commonly `localhost`).
-	
-```console
-$ cd letsencrypt/
-$ ./self-signed-init.sh localhost
-INFO: making certs directory
-Generating a 4096 bit RSA private key
-................................................................................................................................................................................................................................................++
-....................................................++
-writing new private key to 'key.pem'
------
-INFO: update the nginx/wordpress_ssl.conf file
--  4:   server_name localhost;
-- 19:   server_name               localhost www.localhost;
-- 40:   ssl_certificate           /etc/letsencrypt/live/localhost/cert.pem;
-- 41:   ssl_certificate_key       /etc/letsencrypt/live/localhost/privkey.pem;
-- 42:   #ssl_trusted_certificate   /etc/letsencrypt/live/FQDN_OR_IP/chain.pem; <-- COMMENT OUT OR REMOVE
+```ini
+file_uploads = On
+memory_limit = 256M
+upload_max_filesize = 75M
+post_max_size = 75M
+max_execution_time = 600
 ```
 
-### <a name="renew"></a>Renew your Let's Encrypt certificate
+Included `uploads.ini` file allows for **Maximum upload file size: 75 MB**
 
-What is the lifetime for Let’s Encrypt certificates? For how long are they valid?
-
-- Let's Encrypt certificates are valid for 90 days. You can read about why [here](https://letsencrypt.org/2015/11/09/why-90-days.html).
-- There is no way to adjust this, there are no exceptions. Let's Encrypt recommends automatically renewing your certificates every 60 days.
-
-A script named [letsencrypt-renew.sh](letsencrypt/letsencrypt-renew.sh) has been provided to update your certificate as needed. This script can be run at any time along side of your already running site, and if the certificate is due for renewal, it will be renewed. If it is still valid or not yet close to the expiry date, then you'll see a `Cert not yet due for renewal` message such as the one below.
-
-```console
-$ letsencrypt/letsencrypt-renew.sh
-INFO: running from top level of repository
-Saving debug log to /var/log/letsencrypt/letsencrypt.log
-
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-Processing /etc/letsencrypt/renewal/mjstealey.com.conf
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-Cert not yet due for renewal
-
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-The following certs are not due for renewal yet:
-  /etc/letsencrypt/live/mjstealey.com/fullchain.pem expires on 2019-05-07 (skipped)
-No renewals were attempted.
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-Killing nginx ... done
-```
-
-This script can be scheduled to run via a cron task every 15 days or so to ensure an automatic renewal of your certificate.
-
-Prior to certificate expiration the user will receive an email from **The Let's Encrypt Team** with expiry information.
-
-Example email:
-
->Hello,
->
->Your certificate (or certificates) for the names listed below will expire in 10 days (on 18 Sep 18 02:01 +0000). Please make sure to renew your certificate before then, or visitors to your website will encounter errors.
->
->We recommend renewing certificates automatically when they have a third of their
-total lifetime left. For Let's Encrypt's current 90-day certificates, that means
-renewing 30 days before expiration. See
->[https://letsencrypt.org/docs/integration-guide/]() for details.
->
->- [example.com]()
->- [www.example.com]()
->
->For any questions or support, please visit [https://community.letsencrypt.org/](). Unfortunately, we can't provide support by email.
->
->If you are receiving this email in error, unsubscribe at [http://mandrillapp.com/track/unsub.php?u=12345678&id=abcdefghijklmnopqrstuvwxyz.0123456789&r=https%3A%2F%2Fmandrillapp.com%2Funsub%3Fmd_email%3Dexample%2540example.com]()
->
->Regards,
->The Let's Encrypt Team
-
-Running the `letsencrypt-renew.sh` script during an active renewal period would renew the site's certificates assuming the site has remained in good standing.
-
-Example renewal:
-
-```console
-$ ./letsencrypt-renew.sh
-Saving debug log to /var/log/letsencrypt/letsencrypt.log
-
--------------------------------------------------------------------------------
-Processing /etc/letsencrypt/renewal/example.com.conf
--------------------------------------------------------------------------------
-Cert is due for renewal, auto-renewing...
-Plugins selected: Authenticator webroot, Installer None
-Renewing an existing certificate
-Performing the following challenges:
-http-01 challenge for example.com
-http-01 challenge for www.example.com
-Using the webroot path /data/letsencrypt for all unmatched domains.
-Waiting for verification...
-Cleaning up challenges
-
--------------------------------------------------------------------------------
-new certificate deployed without reload, fullchain is
-/etc/letsencrypt/live/example.com/fullchain.pem
--------------------------------------------------------------------------------
-
--------------------------------------------------------------------------------
-
-Congratulations, all renewals succeeded. The following certs have been renewed:
-  /etc/letsencrypt/live/example.com/fullchain.pem (success)
--------------------------------------------------------------------------------
-Killing nginx ... done
-```
-
-And that's it!
+![](./imgs/WP-media-filesize.png)
 
 ## <a name="deploy"></a>Deploy
 
-Once configuration has been completed deployment is just a matter of invoking the docker-compose command. Depending on the output you want to see you can choose to daemonize the launching of the containers with `-d`
+Once configured the containers can be brought up using Docker Compose
 
-### Launch everything daemonized
+1. Set the environment variables and pull the images
 
-```
-docker-compose up -d
-```
+    ```console
+    source .env
+    docker-compose pull
+    ```
 
-### Launch everything, but see the STDOUT of the containers in the console
+2. Bring up the Database and allow it a moment to create the WordPress user and database tables
 
-```
-docker-compose up
-```
-
-Issuing a `ctrl-z` will safely disconnect from the console without terminating the running containers. Otherwise `ctrl-c` will disconnect and kill the containers.
-
-### Staged approach
-
-The user may notice `Connection Error` output from the WordPress container as the database readies itself for connections. This can be eliminated by staging the deployment of the containers until each one has properly set up.
-
-```
-docker-compose up -d database
-```
-
-wait until the database completes it's setup. This can be observed by looking at the log output using `docker-compose logs database` and waiting for the **mysqld: ready for connections** message.
-
-```
-docker-compose up -d wordpress nginx
-```
-
-
-
-## <a name="site"></a>Running site
-
-### Initial WordPress setup
-
-Navigate your browser to [http://127.0.0.1](http://127.0.0.1) and follow the installation prompts
-
-1. Set language
-
-    <img width="80%" alt="Select language" src="https://user-images.githubusercontent.com/5332509/44045885-f47a89fe-9ef7-11e8-8dae-0df0bfb269de.png">
-2. Create an administrative user
-
-    <img width="80%" alt="Create admin user" src="https://user-images.githubusercontent.com/5332509/44045887-f4897cfc-9ef7-11e8-89c6-cfc96cfc9ca0.png">
-
-3. Success
-
-    <img width="80%" alt="Success" src="https://user-images.githubusercontent.com/5332509/44045888-f49b344c-9ef7-11e8-9d65-39517f521d85.png">
+    ```console
+    docker-compose up -d database
+    ```
     
-4. Log in as the administrative user, dashboard, view site
-
-    <img width="80%" alt="First login" src="https://user-images.githubusercontent.com/5332509/44045889-f4a71992-9ef7-11e8-8f5d-8ab16da481c2.png">
+    You will know it's ready when you see something like this in the docker logs
     
-    <img width="80%" alt="Site dashboard" src="https://user-images.githubusercontent.com/5332509/44045890-f4b4b264-9ef7-11e8-935b-cbc546cd9e00.png">
-    
-    <img width="80%" alt="View site" src="https://user-images.githubusercontent.com/5332509/44045891-f4c5f90c-9ef7-11e8-88e4-fc8cfb61ea7d.png">
-    
-    
-Once your site is running you can begin to create and publish any content you'd like in your WordPress instance.
+    ```console
+    $ docker-compose logs database
+    wp-database  | 2022-01-28 13:40:18+00:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.28-1debian10 started.
+    wp-database  | 2022-01-28 13:40:18+00:00 [Note] [Entrypoint]: Switching to dedicated user 'mysql'
+    wp-database  | 2022-01-28 13:40:18+00:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.28-1debian10 started.
+    wp-database  | 2022-01-28 13:40:18+00:00 [Note] [Entrypoint]: Initializing database files
+    ...
+    wp-database  | 2022-01-28 13:40:28+00:00 [Note] [Entrypoint]: Creating database wordpress
+    wp-database  | 2022-01-28 13:40:28+00:00 [Note] [Entrypoint]: Creating user wordpress
+    wp-database  | 2022-01-28 13:40:28+00:00 [Note] [Entrypoint]: Giving user wordpress access to schema wordpress
+    wp-database  |
+    wp-database  | 2022-01-28 13:40:28+00:00 [Note] [Entrypoint]: Stopping temporary server
+    wp-database  | 2022-01-28T13:40:29.002886Z 13 [System] [MY-013172] [Server] Received SHUTDOWN from user root. Shutting down mysqld (Version: 8.0.28).
+    wp-database  | 2022-01-28T13:40:30.226306Z 0 [System] [MY-010910] [Server] /usr/sbin/mysqld: Shutdown complete (mysqld 8.0.28)  MySQL Community Server - GPL.
+    wp-database  | 2022-01-28 13:40:31+00:00 [Note] [Entrypoint]: Temporary server stopped
+    wp-database  |
+    wp-database  | 2022-01-28 13:40:31+00:00 [Note] [Entrypoint]: MySQL init process done. Ready for start up.
+    wp-database  |
+    ...
+    wp-database  | 2022-01-28T13:40:32.061642Z 0 [System] [MY-011323] [Server] X Plugin ready for connections. Bind-address: '::' port: 33060, socket: /var/run/mysqld/mysqlx.sock
+    wp-database  | 2022-01-28T13:40:32.061790Z 0 [System] [MY-010931] [Server] /usr/sbin/mysqld: ready for connections. Version: '8.0.28'  socket: '/var/run/mysqld/mysqld.sock'  port: 3306  MySQL Community Server - GPL.
+    ```
 
-## <a name="stop-and-remove"></a>Stop and remove contaiers
+3. Bring up the WordPress and Nginx containers
 
-Because `docker-compose.yml` was used to define the container relationships it can also be used to stop and remove the containers from the host they are running on.
+    ```console
+    docker-compose up -d wordpress nginx
+    ```
+    
+    After a few moments the containers should be observed as running
+    
+    ```console
+    $ docker-compose ps
+    NAME                COMMAND                  SERVICE             STATUS              PORTS
+    wp-database         "docker-entrypoint.s…"   database            running             33060/tcp
+    wp-nginx            "/docker-entrypoint.…"   nginx               running             0.0.0.0:8080->80/tcp, 0.0.0.0:8443->443/tcp
+    wp-wordpress        "docker-entrypoint.s…"   wordpress           running             9000/tcp
+    ```
 
-Stop and remove containers:
+The WordPress application can be reached at the designated host and port (e.g. [https://127.0.0.1:8443]()).
+
+- **NOTE**: you will likely have to acknowledge the security risk if using the included self-signed certificate.
+
+![](./imgs/WP-first-run.png) 
+
+Complete the initial WordPress installation process, and when completed you should see something similar to this.
+
+![](./imgs/WP-dashboard.png)
+![](./imgs/WP-view-site.png)
+
+## <a name="adminer"></a>Adminer
+
+An Adminer configuration has been included in the `docker-compose.yml` definition file, but commented out. Since it bypasses Nginx it is recommended to only use Adminer as needed, and to not let it run continuously.
+
+Expose Adminer by uncommenting the `adminer` section of the `docker-compose.yml` file
+
+```yaml
+...
+  # adminer - bring up only as needed - bypasses nginx
+  adminer:
+    # default port 8080
+    image: adminer:4
+    container_name: wp-adminer
+    restart: unless-stopped
+    networks:
+      - wordpress
+    depends_on:
+      - database
+    ports:
+      - "9000:8080"
+...
+```
+
+And run the `adminer` container
 
 ```console
-$ cd wordpress-nginx-docker
+$ docker-compose up -d adminer
+[+] Running 2/2
+ ⠿ Container wp-database  Running                                                                                                      0.0s
+ ⠿ Container wp-adminer   Started                                                                                                      0.9s
+```
+
+Since Adminer is bypassing our Nginx configuration it will be running over HTTP in plain text on port 9000 (e.g. [http://127.0.0.1:9000/]())
+
+![](./imgs/WP-adminer.png)
+
+Enter the connection information for your Database and you should see something similar to image below.
+
+Example connection information:
+
+- System: **MySQL**
+- Server: **database**
+- Username: **wordpress**
+- Password: **password123!**
+- Database: **wordpress**
+
+    **NOTE**: Since `adminer` is defined in the same docker-compose file as the MySQL Database it will "understand" the **Server** reference as **database**, otherwise this would need to be a formal URL reference
+
+![](./imgs/WP-adminer-connected.png)
+
+When finished, stop and remove the `adminer` container.
+
+```console
+$ docker-compose stop adminer
+[+] Running 1/1
+ ⠿ Container wp-adminer  Stopped                                                                                                       0.1s
+$ docker-compose rm -fv adminer
+Going to remove wp-adminer
+[+] Running 1/0
+ ⠿ Container wp-adminer  Removed                                                                                                       0.0s
+```
+
+## <a name="teardown"></a>Teardown
+
+For a complete teardown all containers must be stopped and removed along with the volumes and network that were created for the application containers
+
+Commands
+
+```console
+docker-compose stop
+docker-compose rm -fv
+docker-network rm wp-wordpress
+# removal calls may require sudo rights depending on file permissions
+rm -rf ./wordpress
+rm -rf ./dbdata
+rm -rf ./logs
+```
+
+Expected output
+
+```console
 $ docker-compose stop
-Stopping nginx     ... done
-Stopping wordpress ... done
-Stopping mysql     ... done
-$ docker-compose rm -f
-Going to remove nginx, wordpress, mysql
-Removing nginx     ... done
-Removing wordpress ... done
-Removing mysql     ... done
+[+] Running 3/3
+ ⠿ Container wp-nginx      Stopped                                                                                                     0.3s
+ ⠿ Container wp-wordpress  Stopped                                                                                                     0.2s
+ ⠿ Container wp-database   Stopped                                                                                                     0.8s
+$ docker-compose rm -fv
+Going to remove wp-nginx, wp-wordpress, wp-database
+[+] Running 3/0
+ ⠿ Container wp-nginx      Removed                                                                                                     0.0s
+ ⠿ Container wp-database   Removed                                                                                                     0.0s
+ ⠿ Container wp-wordpress  Removed                                                                                                     0.0s
+$ docker network rm wp-wordpress
+wp-wordpress
+$ rm -rf ./wordpress
+$ rm -rf ./dbdata
+$ rm -rf ./logs
 ```
 
-Removing all related directories:
+## <a name="references"></a>References
 
-```console
-$ rm -rf certs/ certs-data/ logs/ mysql/ wordpress/
-```
+- WordPress Docker images: [https://hub.docker.com/_/wordpress/](https://hub.docker.com/_/wordpress/)
+- MySQL Docker images: [https://hub.docker.com/_/mysql](https://hub.docker.com/_/mysql)
+- Nginx Docker images: [https://hub.docker.com/_/nginx/](https://hub.docker.com/_/nginx/)
+- Adminer Docker images: [https://hub.docker.com/_/adminer](https://hub.docker.com/_/adminer)
 
-A script named `stop-and-remove.sh` has been provided to run these commands for you. See an example [here](CONSOLE.md/#stop-and-remove). 
+---
 
-## <a name="opt-config"></a>Optional Configuration
+## <a name="notes"></a>Notes
 
-### Environment Variables
+General information regarding standard Docker deployment of WordPress for reference purposes
 
-WordPress environment variables. See the [official image](https://hub.docker.com/_/wordpress/) for additional information.
+### Let's Encrypt SSL Certificate
 
-- `WORDPRESS_DB_NAME`: Name of database used for WordPress in MariaDB
-- `WORDPRESS_TABLE_PREFIX`: Prefix appended to all WordPress related tables in the `WORDPRESS_DB_NAME` database
-- `WORDPRESS_DB_HOST `: Hostname of the database server / container
-- `WORDPRESS_DB_PASSWORD `: Database password for the `WORDPRESS_DB_USER`. By default 'root' is the `WORDPRESS_DB_USER`.
+Use: [https://github.com/RENCI-NRIG/ez-letsencrypt](https://github.com/RENCI-NRIG/ez-letsencrypt) - A shell script to obtain and renew [Let's Encrypt](https://letsencrypt.org/) certificates using Certbot's `--webroot` method of [certificate issuance](https://certbot.eff.org/docs/using.html#webroot).
 
-```yaml
-    environment:
-      - WORDPRESS_DB_NAME=${WORDPRESS_DB_NAME:-wordpress}
-      - WORDPRESS_TABLE_PREFIX=${WORDPRESS_TABLE_PREFIX:-wp_}
-      - WORDPRESS_DB_HOST=${WORDPRESS_DB_HOST:-mysql}
-      - WORDPRESS_DB_USER=${WORDPRESS_DB_USER:-root}
-      - WORDPRESS_DB_PASSWORD=${WORDPRESS_DB_PASSWORD:-password}
-```
+### Error establishing database connection
 
-MySQL environment variables.
+This can happen when the `wordpress` container attempts to reach the `database` container prior to it being ready for a connection.
 
-- If you've altered the `WORDPRESS_DB_PASSWORD` you should also set the `MYSQL_ROOT_PASSWORD ` to be the same as they will both be associated with the user 'root'.
+![](./imgs/WP-database-connection.png)
 
-```yaml
-    environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-password}
-      - MYSQL_USER=${MYSQL_USER:-root}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-password}
-      - MYSQL_DATABASE=${MYSQL_DATABASE:-wordpress}
-```
-
-### Non-root database user
-
-If you don't want 'root' as the `WORDPRESS_DB_USER`, then the configuration variables in `.env` can be updated in the following way.
-
-Example:
-
-```yaml
-# wordpress - wordpress:php7.3-fpm
-WORDPRESS_DB_NAME=wordpress
-WORDPRESS_TABLE_PREFIX=wp_
-WORDPRESS_DB_HOST=mysql
-WORDPRESS_DB_USER=wp_user          # new DB user
-WORDPRESS_DB_PASSWORD=wp_password. # new DB password
-
-# mariadb - mariadb:latest
-MYSQL_ROOT_PASSWORD=password
-MYSQL_USER=wp_user                 # same as WORDPRESS_DB_USER
-MYSQL_PASSWORD=wp_password         # same as WORDPRESS_DB_PASSWORD
-MYSQL_DATABASE=wordpress           # same as WORDPRESS_DB_NAME
-
-# nginx - nginx:latest
-NGINX_DEFAULT_CONF=./nginx/default.conf
-
-# volumes on host
-NGINX_LOG_DIR=./logs/nginx
-WORDPRESS_DATA_DIR=./wordpress
-SSL_CERTS_DIR=./certs
-SSL_CERTS_DATA_DIR=./certs-data
-```
-
+This will sometimes resolve itself once the database fully spins up, but generally it's advised to start the database first and ensure it's created all of its user and wordpress tables and then start the WordPress service.
 
 ### Port Mapping
 
-Neither the **mysql** container nor the **wordpress** container have publicly exposed ports. They are running on the host using a docker defined network which provides the containers with access to each others ports, but not from the host.
+Neither the **wordpress** container nor the **database** container have publicly exposed ports. They are running on the host using a docker defined network which provides the containers with access to each others ports, but not from the host.
 
 If you wish to expose the ports to the host, you'd need to alter the stanzas for each in the `docker-compose.yml` file.
 
-For the `mysql` stanza, add
+For the `database` stanza, add
 
 ```
     ports:
-      - '3306:3306'
+      - "3306:3306"
 ```
 
 For the `wordpress` stanza, add
 
 ```
     ports:
-      - '9000:9000'
+      - "9000:9000"
 ```
-
-
-## <a name="debug"></a>Debugging tips
-
-### On Windows
-
-If you encounter an error on the mysql container like this:
-```
-[ERROR] Plugin ‘InnoDB’ registration as a STORAGE ENGINE failed.
-[ERROR] Unknown/unsupported storage engine: InnoDB
-```
-please add the following to the `mysql` stanza:
-
-```command: --innodb-flush-method=fsync --innodb-use-native-aio=0```
-
-This is partly because Windows (or to be precise NTFS) dosen't support Asyncronous I/Os (see [this](https://github.com/docker-library/mariadb/issues/95) for more details).
-
-Don't forget to `docker-compose stop` AND to manually remove everything under `./mysql/` before retrying.
-
-TODO:
-
-container logs
-
-permissions
