@@ -2,7 +2,7 @@ version: '3.9'
 services:
 
   wordpress:
-    # default port 9000 (FastCGI)
+    # default port 80
     image: wordpress:5-fpm
     container_name: wp-wordpress
     env_file:
@@ -13,14 +13,14 @@ services:
     depends_on:
       - database
     volumes:
-      - ${WORDPRESS_LOCAL_HOME}:/var/www/html
-      - ${WORDPRESS_UPLOADS_CONFIG}:/usr/local/etc/php/conf.d/uploads.ini
+      - ${WORDPRESS_LOCAL_HOME:-./wordpress}:/var/www/html
+      - ${WORDPRESS_UPLOADS_CONFIG:-./config/uploads.ini}:/usr/local/etc/php/conf.d/uploads.ini
       # - /path/to/repo/myTheme/:/var/www/html/wp-content/themes/myTheme
     environment:
-      - WORDPRESS_DB_HOST=${WORDPRESS_DB_HOST}
-      - WORDPRESS_DB_NAME=${WORDPRESS_DB_NAME}
-      - WORDPRESS_DB_USER=${WORDPRESS_DB_USER}
-      - WORDPRESS_DB_PASSWORD=${WORDPRESS_DB_PASSWORD}
+      - WORDPRESS_DB_HOST=${WORDPRESS_DB_HOST:-database:3306}
+      - WORDPRESS_DB_NAME=${WORDPRESS_DB_NAME:-wordpress}
+      - WORDPRESS_DB_USER=${WORDPRESS_DB_USER:-wordpress}
+      - WORDPRESS_DB_PASSWORD=${WORDPRESS_DB_PASSWORD:-password123!}
 
   database:
     # default port 3306
@@ -32,12 +32,12 @@ services:
     networks:
       - wordpress
     environment:
-      - MYSQL_DATABASE=${MYSQL_DATABASE}
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-wordpress}
+      - MYSQL_USER=${MYSQL_USER:-wordpress}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-password123!}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootpassword123!}
     volumes:
-      - ${MYSQL_LOCAL_HOME}:/var/lib/mysql
+      - ${MYSQL_LOCAL_HOME:-./dbdata}:/var/lib/mysql
     command:
       - '--default-authentication-plugin=mysql_native_password'
 
@@ -56,15 +56,15 @@ services:
       - "8080:80"    # http
       - "8443:443"   # https
     volumes:
-      - ${WORDPRESS_LOCAL_HOME}:/var/www/html
-      - ${NGINX_CONF}:/etc/nginx/conf.d/default.conf
-      - ${NGINX_SSL_CERTS}:/etc/ssl:ro
-      - ${NGINX_LOGS}:/var/log/nginx
+      - ${WORDPRESS_LOCAL_HOME:-./wordpress}:/var/www/html
+      - ${NGINX_CONF:-./nginx/default.conf}:/etc/nginx/conf.d/default.conf
+      - ${NGINX_SSL_CERTS:-./ssl}:/etc/ssl:ro
+      - ${NGINX_LOGS:-./logs/nginx}:/var/log/nginx
 
   # adminer - bring up only as needed - bypasses nginx
 #  adminer:
-#    # default port 8080
-#    image: adminer:4
+#    # default port 9000
+#    image: adminer:4-fastcgi
 #    container_name: wp-adminer
 #    restart: unless-stopped
 #    networks:
@@ -72,7 +72,7 @@ services:
 #    depends_on:
 #      - database
 #    ports:
-#      - "9000:8080"
+#      - "9000:9000"
 
 networks:
   wordpress:
